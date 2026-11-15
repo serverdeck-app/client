@@ -1,0 +1,1429 @@
+diff --git a/SERVERDECK.md b/SERVERDECK.md
+new file mode 100644
+--- /dev/null
++++ b/SERVERDECK.md
+@@ -0,0 +1,77 @@
++# ServerDeck policy variant
++
++Upstream source and MIT license are preserved. UPSTREAM.json records archive and
++per-file pristine hashes; patches/dartssh2-4.1.0-policy.patch records the three
++changed library files. Upstream README examples describe upstream defaults, not
++this stricter application variant.
++
++SSHClient requires onVerifyHostKey(type,fingerprint,exactBlob) and
++onHostKeyChanged(type,fingerprint,exactBlob), signature verification enabled, and
++exactly one password callback OR one identity. No keyboard-interactive, hostbased,
++agent or password-change callbacks. No initial none auth; partial success fails
++with SSHUnsupportedAuthError. Changed rekey closes and notifies, never asks to
++continue; key identity compares exact bytes, not negotiated RSA signature type.
++Callbacks receive copies. Missing raw transport verifier rejects the first key.
++
++Upstream already supports nullable handshakeTimeout/authTimeout; application
++adapter supplies null timers and keepAliveInterval:null, using its own budget.
++The application algorithm allowlist and key parser policy are implemented by003
++transport adapter tasks, not implied complete by vendoring this library.
++
++Only lib/, package metadata, README/CHANGELOG and license were extracted from the
++verified archive; upstream runnable/integration tests were not added to this repo.
++Local analyzer options retain upstream lint style while keeping errors/warnings
++checked. Unit tests use memory transport; no SSH/network process is started.
++
++RSA host signatures must match negotiated rsa-sha2-256/512 exactly; embedded SHA1
++or a different RSA digest rejects before host acceptance and NEWKEYS/auth. Public
++key identity still uses the unchanged ssh-rsa wire blob. T028 tests feed complete
++synthetic pre-NEWKEYS KEX bytes in memory, never a listening SSH service.
++
++
++The application supplies onVerifyHostSignature backed by an owned4slot worker pool.
++Transport checks bounded canonical encoding/algorithm first, then awaits the CPU
++verifier before host acceptance. verifyHostSignature is the shared pure function;
++low-level tests may use the synchronous fallback, never the strict app adapter.
++Closure during signature/trust waits prevents late NEWKEYS/auth. Pending incoming
++bytes are capped at1MiB; overflow closes with fixed SSHResourceLimitError. Worker
++scheduling failures use fixed SSHSignatureVerificationError reasons. No host key
++size-security floor is added; numeric/format sanity and bounded CPU are enforced.
++
++## 004 bounded monitoring execution
++
++SSHClient.startBoundedExec returns a synchronous cancellable handle, one unresolved
++opening/open/retired monitoring channel per connection. Deadline at most5s begins
++before open. A65536-byte cumulative stdout+all extended-data budget is enforced
++inside channel admission before asynchronous buffering; only stdout retained.
++Ordinary channels retain upstream window/stream behavior. Cancelled pending opens
++retain their waiter/ID; late success closes without exec. Retired channels drop
++messages until peer CLOSE, never refill windows or queue replies. New monitoring
++calls receive cleanupPending until the protocol slot retires. Duplicate ACKs cannot
++accumulate as reply queue entries. All public bounded results use fixed failures,
++not remote exception text. Application adapter must supply only its fixed collector
++and must enforce canonical session/trust/cancellation admission.
++
++
++## 007 guarded interactive PTY
++
++startOwnedPty supplies synchronous receive callbacks before buffering, explicit
++15s opening cancellation, PTY acknowledgment before shell/quoted exec, bounded
++protocol slots including retired opens, late success cleanup and positive remote
++packet size validation. SSHOwnedPtySession accepts whole bounded input actions
++with removable remote-window/cancel listeners, positive per-fragment progress,
++15s deadline and a final guard for every packet. Device replies use the same app
++FIFO. trySendPacket returns false before encryption/sequence mutation during rekey;
++it never queues that payload. The strict application adapter reserves capacity
++before encryption and admits guard/encrypt/raw socket.add atomically, then flushes
++outside the command gate. It never drops or retries encrypted packets. Synthetic
++units cover cancellation/rekey/late-open/malformed packet size boundaries.
++
++Packet send callbacks also receive one SSHOwnedPacketWait deadline/cancellation
++control. Input checks the same monotonic deadline across fragments; setup uses
++its opening deadline. The strict adapter subscribes to removable rekey/drain/cancel
++signals, and a completed/expired wait removes timers/listeners. Synthetic clock
++injection exists only on the owned PTY options for adapter units. A timed-out
++queued gate callback is latched inactive; up to64 such active/retired admissions
++are retained until their original callbacks settle. Committed ciphertext keeps
++its flush/FIFO reservation independently from an action's returned unknown outcome.
+diff --git a/THIRD_PARTY_NOTICES.txt b/THIRD_PARTY_NOTICES.txt
+new file mode 100644
+--- /dev/null
++++ b/THIRD_PARTY_NOTICES.txt
+@@ -0,0 +1,81 @@
++// ignore_for_file: non_constant_identifier_names, constant_identifier_names
++
++/*
++ * This file is a 1:1 port from the OpenBSD blowfish.c and bcrypt_pbkdf.c. As a
++ * result, it retains the original copyright and license. The two files are
++ * under slightly different (but compatible) licenses, and are here combined in
++ * one file.
++ *
++ * Credit for the actual porting work goes to:
++ *  Devi Mandiri <me@devi.web.id>
++ */
++
++/*
++ * The Blowfish portions are under the following license:
++ *
++ * Blowfish block cipher for OpenBSD
++ * Copyright 1997 Niels Provos <provos@physnet.uni-hamburg.de>
++ * All rights reserved.
++ *
++ * Implementation advice by David Mazieres <dm@lcs.mit.edu>.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in the
++ *    documentation and/or other materials provided with the distribution.
++ * 3. The name of the author may not be used to endorse or promote products
++ *    derived from this software without specific prior written permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
++ * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
++ * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
++ * IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT,
++ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
++ * NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
++ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
++ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
++ * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ */
++
++/*
++ * The bcrypt_pbkdf portions are under the following license:
++ *
++ * Copyright (c) 2013 Ted Unangst <tedu@openbsd.org>
++ *
++ * Permission to use, copy, modify, and distribute this software for any
++ * purpose with or without fee is hereby granted, provided that the above
++ * copyright notice and this permission notice appear in all copies.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
++ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
++ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
++ * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
++ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
++ * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
++ * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
++ */
++
++/*
++ * Performance improvements (Javascript-specific):
++ *
++ * Copyright 2016, Joyent Inc
++ * Author: Alex Wilson <alex.wilson@joyent.com>
++ *
++ * Permission to use, copy, modify, and distribute this software for any
++ * purpose with or without fee is hereby granted, provided that the above
++ * copyright notice and this permission notice appear in all copies.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
++ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
++ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
++ * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
++ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
++ * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
++ * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
++ */
++
+diff --git a/analysis_options.yaml b/analysis_options.yaml
+new file mode 100644
+--- /dev/null
++++ b/analysis_options.yaml
+@@ -0,0 +1,7 @@
++# Keep upstream source style; analyzer errors/warnings remain enabled.
++# The application rules remain enforced outside this vendored package.
++linter:
++  rules:
++    avoid_print: false
++    prefer_single_quotes: false
++    unawaited_futures: false
+diff --git a/lib/src/ssh_channel.dart b/lib/src/ssh_channel.dart
+--- a/lib/src/ssh_channel.dart
++++ b/lib/src/ssh_channel.dart
+@@ -36,6 +36,11 @@
+   SSHChannel get channel => SSHChannel(this);
+ 
+   final Future<void> Function()? onFlush;
++
++  /// Optional bounded synchronous consumer, before asynchronous stream buffering.
++  /// Used only by the application monitoring channel; ordinary streams unchanged.
++  final void Function(SSHChannelData)? onData;
++  final void Function()? onAbort;
+ 
+   SSHChannelController({
+     required this.localId,
+@@ -46,6 +51,8 @@
+     required this.remoteMaximumPacketSize,
+     required this.sendMessage,
+     this.onFlush,
++    this.onData,
++    this.onAbort,
+     this.printDebug,
+   }) {
+     if (remoteInitialWindowSize > 0) {
+@@ -127,8 +134,45 @@
+   var _hasSentClose = false;
+ 
+   final _done = Completer<void>();
++  bool _boundedReplyExpected = false;
++  final _ownedWindowListeners = <void Function()>{};
++  int get ownedRemoteWindow => _remoteWindow;
++  bool get ownedClosed => _done.isCompleted || _hasSentEOF;
++  void commitOwnedWindow(int bytes) {
++    _remoteWindow -= bytes;
++  }
++
++  void Function() listenOwnedWindow(void Function() changed) {
++    _ownedWindowListeners.add(changed);
++    return () => _ownedWindowListeners.remove(changed);
++  }
++
++  void _notifyOwnedWindow() {
++    for (final listener in List.of(_ownedWindowListeners)) {
++      listener();
++    }
++  }
++
++  Future<bool> ownedRequest(Future<void> Function() send) async {
++    _terminalState.throwIfTerminated();
++    if (_boundedReplyExpected) throw SSHStateError('Concurrent owned request');
++    _boundedReplyExpected = true;
++    final reply = Future<bool>.value(_requestReplyQueue.next);
++    reply.ignore();
++    try {
++      await send();
++      return await reply;
++    } catch (_) {
++      destroy();
++      rethrow;
++    }
++  }
+ 
+   Future<bool> sendExec(String command) {
++    if (onData != null) {
++      _terminalState.throwIfTerminated();
++      _boundedReplyExpected = true;
++    }
+     return _sendRequest(
+       SSH_Message_Channel_Request.exec(
+         recipientChannel: remoteId,
+@@ -247,6 +291,9 @@
+   }
+ 
+   void handleMessage(SSHMessage message) {
++    // Retired bounded channels retain their protocol ID until peer CLOSE only.
++    // In particular never queue unsolicited replies or replenish their window.
++    if (onData != null && _done.isCompleted) return;
+     if (message is SSH_Message_Channel_Data) {
+       _handleDataMessage(message.data);
+     } else if (message is SSH_Message_Channel_Extended_Data) {
+@@ -298,6 +345,9 @@
+       error ?? SSHStateError('Channel destroyed before receiving reply'),
+       stackTrace,
+     );
++    // done alone also denotes orderly peer CLOSE. Bounded consumers must retain
++    // this local-abort distinction even after a successful exec ACK/status.
++    onAbort?.call();
+   }
+ 
+   Future<bool> _sendRequest(SSHMessage request) async {
+@@ -315,6 +365,8 @@
+     _requestReplyQueue.closeWithError(error, stackTrace);
+     if (!_done.isCompleted) {
+       _done.complete();
++      _notifyOwnedWindow();
++      _ownedWindowListeners.clear();
+     }
+   }
+ 
+@@ -334,6 +386,7 @@
+     }
+ 
+     _remoteWindow = adjustedWindow;
++    _notifyOwnedWindow();
+ 
+     if (_remoteWindow > 0) {
+       _uploadLoop.activate();
+@@ -368,7 +421,12 @@
+     }
+ 
+     _localWindow -= data.length;
+-    _remoteStream.add(SSHChannelData(data, type: type));
++    final consumer = onData;
++    if (consumer == null) {
++      _remoteStream.add(SSHChannelData(data, type: type));
++    } else {
++      consumer(SSHChannelData(data, type: type));
++    }
+     _sendWindowAdjustIfNeeded();
+   }
+ 
+@@ -407,11 +465,25 @@
+ 
+   void _handleRequestSuccessMessage() {
+     printDebug?.call('SSHChannel._handleRequestSuccessMessage');
++    if (onData != null) {
++      if (!_boundedReplyExpected) {
++        destroy();
++        return;
++      }
++      _boundedReplyExpected = false;
++    }
+     _requestReplyQueue.add(true);
+   }
+ 
+   void _handleRequestFailureMessage() {
+     printDebug?.call('SSHChannel._handleRequestFailureMessage');
++    if (onData != null) {
++      if (!_boundedReplyExpected) {
++        destroy();
++        return;
++      }
++      _boundedReplyExpected = false;
++    }
+     _requestReplyQueue.add(false);
+   }
+ 
+@@ -478,7 +550,7 @@
+     printDebug?.call('SSHChannel._sendWindowAdjustIfNeeded');
+ 
+     if (_done.isCompleted) return;
+-    if (_remoteStream.isPaused) return;
++    if (onData == null && _remoteStream.isPaused) return;
+ 
+     final bytesToAdd = localInitialWindowSize - _localWindow;
+     if (bytesToAdd <= 0) return;
+diff --git a/lib/src/ssh_client.dart b/lib/src/ssh_client.dart
+--- a/lib/src/ssh_client.dart
++++ b/lib/src/ssh_client.dart
+@@ -28,6 +28,8 @@
+ import 'package:dartssh2/src/ssh_userauth.dart';
+ import 'package:meta/meta.dart';
+ 
++part 'ssh_owned_pty.dart';
++
+ /// https://datatracker.ietf.org/doc/html/rfc4252#section-8
+ typedef SSHPasswordRequestHandler = FutureOr<String?> Function();
+ 
+@@ -169,15 +171,15 @@
+   /// Crypto algorithms available for the client.
+   final SSHAlgorithms algorithms;
+ 
+-  /// Function called when the first host key is received. The callback receives
+-  /// the host key type and fingerprint, and should return true to accept the key
+-  /// or false to reject it and close the connection. If this is null, all host
+-  /// keys are accepted automatically. Warning: the signature check alone only
+-  /// proves the peer owns the key it presented, not that it is the expected host.
+-  /// Leaving this null exposes the connection to man-in-the-middle attacks. Supply
+-  /// this callback and verify the fingerprint against a known-hosts entry or a
+-  /// trusted certificate store.
++  /// ServerDeck requires this callback before starting transport. It receives
++  /// the negotiated type, SHA256 fingerprint and exact verified public key blob.
++  /// No credentials are sent until the callback explicitly accepts the key.
+   final SSHHostkeyVerifyHandler? onVerifyHostKey;
++
++  /// Verified changed-key notification, never permission to continue rekey.
++  final SSHHostkeyChangedHandler? onHostKeyChanged;
++
++  final SSHHostSignatureVerifier? onVerifyHostSignature;
+ 
+   /// List of identities (key pairs or external signers) to use for
+   /// authentication. Set this field to enable authentication with public key.
+@@ -286,6 +288,8 @@
+     this.printTrace,
+     this.algorithms = const SSHAlgorithms(),
+     this.onVerifyHostKey,
++    this.onHostKeyChanged,
++    this.onVerifyHostSignature,
+     this.identities,
+     this.hostbasedIdentities,
+     this.hostName,
+@@ -304,6 +308,19 @@
+     this.pipelineChannelRequests = false,
+     String ident = 'DartSSH_2.0',
+   }) : ident = _validateIdent(ident) {
++    if (onVerifyHostKey == null ||
++        onHostKeyChanged == null ||
++        disableHostkeyVerification ||
++        onUserInfoRequest != null ||
++        onChangePasswordRequest != null ||
++        hostbasedIdentities != null ||
++        agentHandler != null ||
++        (onPasswordRequest != null
++            ? identities != null
++            : identities?.length != 1)) {
++      throw ArgumentError(
++          'ServerDeck requires verified host keys and exactly one password/key method');
++    }
+     _transport = SSHTransport(
+       socket,
+       isServer: false,
+@@ -311,6 +328,8 @@
+       printTrace: printTrace,
+       algorithms: algorithms,
+       onVerifyHostKey: onVerifyHostKey,
++      onHostKeyChanged: onHostKeyChanged,
++      onVerifyHostSignature: onVerifyHostSignature,
+       onReady: _handleTransportReady,
+       onMessage: _handlePacket,
+       disableHostkeyVerification: disableHostkeyVerification,
+@@ -385,6 +404,55 @@
+   );
+ 
+   final _channels = <int, SSHChannelController>{};
++  final _ownedPtys = <int, SSHOwnedPtyOperation>{};
++
++  SSHOwnedPtyOperation startOwnedPty(SSHOwnedPtyOptions options) {
++    if (_ownedPtys.length >= 16) throw const SSHOwnedPtyError('cleanupPending');
++    if (isClosed || !_authenticated.isCompleted)
++      throw const SSHOwnedPtyError('unavailable');
++    final id = _channelIdAllocator.allocate();
++    final op = SSHOwnedPtyOperation._(this, id, options);
++    _ownedPtys[id] = op;
++    op._start();
++    return op;
++  }
++
++  Future<void> waitForOwnedPacketReady() => _transport.waitForKexReady();
++  void Function() listenOwnedPacketReady(void Function() callback) =>
++      _transport.listenOwnedReady(callback);
++  int get ownedPacketWaiterCount => _transport.ownedReadyListenerCount;
++  bool trySendOwnedPacket(Uint8List payload) =>
++      _transport.trySendPacket(payload);
++  bool get ownedPacketBlocked => _transport.isKexInProgress;
++
++  SSHBoundedExec? _boundedExec;
++
++  /// One bounded monitoring operation per connection, including retired channels.
++  /// Caller supplies only its compile-time collector command, never user input.
++  SSHBoundedExec startBoundedExec(
++    String command, {
++    Duration timeout = const Duration(seconds: 5),
++    bool captureStatus = false,
++  }) {
++    if (_boundedExec != null) {
++      return SSHBoundedExec._failed(SSHBoundedExecFailure.cleanupPending);
++    }
++    if (!_authenticated.isCompleted || isClosed) {
++      return SSHBoundedExec._failed(SSHBoundedExecFailure.unavailable);
++    }
++    if (timeout <= Duration.zero || timeout > const Duration(seconds: 5)) {
++      throw ArgumentError('Invalid bounded execution deadline');
++    }
++    final operation = SSHBoundedExec._(this, command, captureStatus);
++    _boundedExec = operation;
++    operation._start(timeout);
++    return operation;
++  }
++
++  void _retireBounded(int id) {
++    if (_boundedExec?._id == id) _boundedExec = null;
++    _ownedPtys.remove(id);
++  }
+ 
+   final _authMethodsLeft = Queue<SSHAuthMethod>();
+ 
+@@ -930,6 +998,8 @@
+ 
+   /// Close all channels that are currently open.
+   void _closeChannels([Object? error, StackTrace? stackTrace]) {
++    _boundedExec?._fail(SSHBoundedExecFailure.unavailable);
++    _boundedExec = null;
+     for (final channel in _channels.values) {
+       channel.destroy(error, stackTrace);
+       _channelIdAllocator.release(channel.localId);
+@@ -1139,7 +1209,8 @@
+         'Authentication partially succeeded with '
+         '${_currentAuthMethod?.name}',
+       );
+-      _resetAuthStateForNextFactor();
++      _authenticated.completeError(SSHUnsupportedAuthError());
++      return;
+     } else {
+       _markCurrentAuthMethodAttempted();
+     }
+@@ -1468,6 +1539,7 @@
+     _requirePendingChannelOpen(message.recipientChannel, 'failure');
+ 
+     _channelIdAllocator.release(message.recipientChannel);
++    _retireBounded(message.recipientChannel);
+     _pendingChannelOpens.fail(
+       message.recipientChannel,
+       SSHChannelOpenError(message.reasonCode, message.description),
+@@ -1524,6 +1596,7 @@
+       channel.handleMessage(message);
+       _channels.remove(message.recipientChannel);
+       _channelIdAllocator.release(message.recipientChannel);
++      _retireBounded(message.recipientChannel);
+     }
+   }
+ 
+@@ -1554,9 +1627,7 @@
+       _preferredAuthMethods.add(SSHAuthMethod.hostbased);
+     }
+ 
+-    _authMethodsLeft
+-      ..addAll(_preferredAuthMethods)
+-      ..add(SSHAuthMethod.none);
++    _authMethodsLeft.addAll(_preferredAuthMethods);
+ 
+     _tryNextAuthMethod();
+   }
+@@ -1741,16 +1812,6 @@
+     }
+   }
+ 
+-  void _resetAuthStateForNextFactor() {
+-    _exhaustedAuthMethods.clear();
+-    // OpenSSH resets public-key attempt state after partial success so the
+-    // next authentication factor may use publickey again. Hostbased keys are
+-    // consumed as they are tried and are intentionally not replenished.
+-    _identitiesLeft
+-      ..clear()
+-      ..addAll(identities ?? const <SSHIdentity>[]);
+-  }
+-
+   Future<SSHChannelController> _openSessionChannel() {
+     final localChannelId = _channelIdAllocator.allocate();
+ 
+@@ -1831,19 +1892,30 @@
+       throw SSHStateError('Channel $localChannelId is already open');
+     }
+ 
++    final bounded = _boundedExec?._id == localChannelId ? _boundedExec : null;
++    final owned = _ownedPtys[localChannelId];
+     final channelController = SSHChannelController(
+       localId: localChannelId,
+-      localInitialWindowSize: _initialWindowSize,
++      localInitialWindowSize:
++          bounded == null && owned == null ? _initialWindowSize : 65536,
+       localMaximumPacketSize: _maximumPacketSize,
+       remoteId: remoteChannelId,
+       remoteInitialWindowSize: remoteInitialWindowSize,
+       remoteMaximumPacketSize: remoteMaximumPacketSize,
+       sendMessage: _sendMessage,
+       onFlush: flush,
++      onData: owned?._data ?? bounded?._data,
++      onAbort: owned != null
++          ? () => owned._stop('channelFailure')
++          : bounded == null
++              ? null
++              : () => bounded._fail(SSHBoundedExecFailure.invalidResponse),
+       printDebug: printDebug,
+     );
+ 
+     _channels[localChannelId] = channelController;
++    bounded?._accept(channelController);
++    owned?._accept(channelController);
+     return channelController;
+   }
+ 
+@@ -1855,6 +1927,144 @@
+   }
+ }
+ 
++enum SSHBoundedExecFailure {
++  cancelled,
++  timeout,
++  outputLimit,
++  cleanupPending,
++  unavailable,
++  invalidResponse,
++}
++
++final class SSHBoundedExecResult {
++  SSHBoundedExecResult._(Uint8List bytes, this.exitCode, this.failure,
++      [Uint8List? errors])
++      : _stdout = bytes,
++        _stderr = errors ?? Uint8List(0);
++  final Uint8List _stdout;
++  final Uint8List _stderr;
++  Uint8List get stdout => Uint8List.fromList(_stdout);
++  Uint8List get stderr => Uint8List.fromList(_stderr);
++  final int? exitCode;
++  final SSHBoundedExecFailure? failure;
++}
++
++/// Cancellable before channel-open or exec ACK. Results contain no remote errors.
++final class SSHBoundedExec {
++  SSHBoundedExec._(this._client, this._command, this._captureStatus);
++  SSHBoundedExec._failed(SSHBoundedExecFailure failure)
++      : _client = null,
++        _captureStatus = false,
++        _command = '' {
++    _result.complete(SSHBoundedExecResult._(Uint8List(0), null, failure));
++  }
++  final SSHClient? _client;
++  final String _command;
++  final bool _captureStatus;
++  final _result = Completer<SSHBoundedExecResult>();
++  final _stdout = BytesBuilder();
++  final _stderr = BytesBuilder();
++  Timer? _timer;
++  int? _id, _exitCode;
++  int _received = 0;
++  bool _sawStatus = false, _invalidStatus = false;
++  SSHChannelController? _channel;
++  Future<SSHBoundedExecResult> get result => _result.future;
++
++  void _start(Duration timeout) {
++    _timer = Timer(timeout, () => _fail(SSHBoundedExecFailure.timeout));
++    unawaited(_open());
++  }
++
++  Future<void> _open() async {
++    final client = _client!;
++    try {
++      await client.authenticated;
++      if (_result.isCompleted) return;
++      final id = client._channelIdAllocator.allocate();
++      _id = id; // Metadata precedes the first CHANNEL_OPEN write.
++      final channel = await client._openChannel(
++          id,
++          SSH_Message_Channel_Open.session(
++            senderChannel: id,
++            initialWindowSize: 65536,
++            maximumPacketSize: 32768,
++          ));
++      if (_result.isCompleted)
++        return; // Late success was synchronously retired.
++      if (!await channel.sendExec(_command)) {
++        _fail(SSHBoundedExecFailure.unavailable);
++        return;
++      }
++      if (_result.isCompleted) return;
++      await channel.channel.done;
++      if (_result.isCompleted) return;
++      if ((!_captureStatus && _exitCode != 0) ||
++          !_sawStatus ||
++          _invalidStatus) {
++        _fail(SSHBoundedExecFailure.invalidResponse);
++        return;
++      }
++      _timer?.cancel();
++      _result.complete(SSHBoundedExecResult._(
++          _stdout.takeBytes(), _exitCode, null, _stderr.takeBytes()));
++    } catch (_) {
++      _fail(SSHBoundedExecFailure.invalidResponse);
++      final id = _id;
++      if (id == null ||
++          (!client._pendingChannelOpens.isWaiting(id) &&
++              !client._channels.containsKey(id))) {
++        if (identical(client._boundedExec, this)) client._boundedExec = null;
++      }
++    }
++  }
++
++  void _accept(SSHChannelController channel) {
++    _channel = channel;
++    if (_result.isCompleted) {
++      channel.destroy(); // Cancelled pending-open: close, never execute.
++      return;
++    }
++    channel.channel.setRequestHandler((request) {
++      if (_result.isCompleted) return false;
++      if (request.requestType == SSHChannelRequestType.exitStatus) {
++        if (_sawStatus) _invalidStatus = true;
++        _sawStatus = true;
++        _exitCode = request.exitStatus;
++        return true;
++      }
++      return false;
++    });
++  }
++
++  void _data(SSHChannelData data) {
++    if (_result.isCompleted) return;
++    if (data.bytes.length > 65536 - _received) {
++      _fail(SSHBoundedExecFailure.outputLimit);
++      return; // Never buffer the crossing packet, even before exec ACK.
++    }
++    _received += data.bytes.length;
++    if (!data.isExtendedData) _stdout.add(data.bytes);
++    if (data.isExtendedData && _captureStatus) _stderr.add(data.bytes);
++  }
++
++  void cancel() => _fail(SSHBoundedExecFailure.cancelled);
++
++  void _fail(SSHBoundedExecFailure reason) {
++    if (_result.isCompleted) return;
++    _timer?.cancel();
++    _stdout.clear();
++    _stderr.clear();
++    _result.complete(SSHBoundedExecResult._(Uint8List(0), null, reason));
++    _channel?.destroy();
++    // Keep the ID / one protocol slot until peer CLOSE or open failure. With no
++    // ID allocated there is no protocol resource and no late open can be sent.
++    if (_id == null && identical(_client?._boundedExec, this)) {
++      _client?._boundedExec = null;
++    }
++  }
++}
++
+ class SSHRemoteForward {
+   final String host;
+ 
+diff --git a/lib/src/ssh_errors.dart b/lib/src/ssh_errors.dart
+--- a/lib/src/ssh_errors.dart
++++ b/lib/src/ssh_errors.dart
+@@ -146,3 +146,24 @@
+     return 'SSHSocketError($error)';
+   }
+ }
++
++/// Server requests unsupported additional authentication factors.
++class SSHUnsupportedAuthError with SSHMessageError implements SSHAuthError {
++  @override
++  final String message = 'Additional authentication factors are unsupported';
++}
++
++/// Fixed scheduling failures from the application's bounded crypto owner.
++enum SSHSignatureFailure { stopping, exhausted, timeout, cancelled }
++
++class SSHSignatureVerificationError with SSHMessageError implements SSHError {
++  final SSHSignatureFailure reason;
++  SSHSignatureVerificationError(this.reason);
++  @override
++  String get message => 'Host signature verification ${reason.name}';
++}
++
++class SSHResourceLimitError with SSHMessageError implements SSHError {
++  @override
++  final String message = 'SSH receive buffer limit exceeded';
++}
+diff --git a/lib/src/ssh_owned_pty.dart b/lib/src/ssh_owned_pty.dart
+new file mode 100644
+--- /dev/null
++++ b/lib/src/ssh_owned_pty.dart
+@@ -0,0 +1,359 @@
++part of 'ssh_client.dart';
++
++/// Only this callback may cross from a plaintext action to an encrypted packet.
++/// The application checks current actor/channel/lease immediately before sending.
++typedef SSHOwnedPacketSender = Future<void> Function(
++  Uint8List payload,
++  void Function() guard,
++  void Function() committed,
++  SSHOwnedPacketWait wait,
++);
++
++/// One action deadline and removable cancellation subscription across all waits.
++class SSHOwnedPacketWait {
++  const SSHOwnedPacketWait(
++      {required this.remaining, required this.listenCancelled});
++  final Duration Function() remaining;
++  final void Function() Function(void Function()) listenCancelled;
++}
++
++class SSHOwnedPtyError implements Exception {
++  const SSHOwnedPtyError(this.reason);
++  final String reason;
++  @override
++  String toString() => 'Owned PTY $reason';
++}
++
++class SSHOwnedPtyCancellation {
++  bool _cancelled = false;
++  final _listeners = <void Function()>{};
++  bool get isCancelled => _cancelled;
++  void Function() listen(void Function() callback) {
++    if (_cancelled) {
++      callback();
++      return () {};
++    }
++    _listeners.add(callback);
++    return () => _listeners.remove(callback);
++  }
++
++  void cancel() {
++    if (_cancelled) return;
++    _cancelled = true;
++    for (final callback in List.of(_listeners)) {
++      callback();
++    }
++    _listeners.clear();
++  }
++
++  void check() {
++    if (_cancelled) throw const SSHOwnedPtyError('cancelled');
++  }
++}
++
++class SSHOwnedPtyOptions {
++  const SSHOwnedPtyOptions({
++    required this.onData,
++    required this.send,
++    this.path,
++    this.width = 80,
++    this.height = 24,
++    this.timeout = const Duration(seconds: 15),
++    this.monotonicNow,
++  });
++  final void Function(Uint8List) onData;
++  final SSHOwnedPacketSender send;
++  final String? path;
++  final int width, height;
++  final Duration timeout;
++
++  /// Optional synthetic clock for adapter units; production uses Stopwatch.
++  final Duration Function()? monotonicNow;
++}
++
++enum SSHOwnedWriteStatus { complete, cancelledBeforeSend, outcomeUnknown }
++
++class SSHOwnedWriteResult {
++  const SSHOwnedWriteResult(this.acceptedBytes, this.status);
++  final int acceptedBytes;
++  final SSHOwnedWriteStatus status;
++}
++
++class SSHOwnedPtyOperation {
++  SSHOwnedPtyOperation._(this._client, this._id, this.options) {
++    _opened.future.ignore();
++  }
++  final SSHClient _client;
++  final int _id;
++  final SSHOwnedPtyOptions options;
++  final _opened = Completer<SSHOwnedPtySession>();
++  SSHChannelController? _channel;
++  Timer? _timer;
++  final _elapsed = Stopwatch();
++  Duration _started = Duration.zero;
++  Duration get _now => options.monotonicNow?.call() ?? _elapsed.elapsed;
++  final _cancellation = SSHOwnedPtyCancellation();
++  bool _stopped = false, _openSent = false;
++  String? failure;
++  int? exitCode;
++  Future<SSHOwnedPtySession> get opened => _opened.future;
++
++  void _start() {
++    if (options.timeout <= Duration.zero ||
++        options.timeout > const Duration(seconds: 15) ||
++        options.width < 2 ||
++        options.width > 512 ||
++        options.height < 1 ||
++        options.height > 200) {
++      _stop('invalidArgument');
++      return;
++    }
++    _timer = Timer(options.timeout, () => _stop('timeout'));
++    _elapsed.start();
++    _started = _now;
++    unawaited(_open());
++  }
++
++  void _check() {
++    if (_stopped || _client.isClosed) throw const SSHOwnedPtyError('cancelled');
++  }
++
++  Future<void> _send(SSHMessage message,
++      {void Function()? guard,
++      void Function()? committed,
++      SSHOwnedPacketWait? wait}) {
++    final payload = message.encode();
++    final started = _opened.isCompleted ? _now : _started;
++    final timeout =
++        _opened.isCompleted ? const Duration(seconds: 15) : options.timeout;
++    final control = wait ??
++        SSHOwnedPacketWait(
++            remaining: () => timeout - (_now - started),
++            listenCancelled: _cancellation.listen);
++    return options.send(payload, () {
++      _check();
++      if (control.remaining() <= Duration.zero)
++        throw const SSHOwnedPtyError('timeout');
++      guard?.call();
++    }, committed ?? () {}, control);
++  }
++
++  Future<void> _open() async {
++    final reply = _client._pendingChannelOpens.wait(_id);
++    reply.ignore();
++    try {
++      await _send(
++          SSH_Message_Channel_Open.session(
++            senderChannel: _id,
++            initialWindowSize: 65536,
++            maximumPacketSize: 32768,
++          ), committed: () {
++        _openSent = true;
++      });
++      _check();
++      final channel = await reply;
++      _check();
++      if (!await channel
++          .ownedRequest(() => _send(SSH_Message_Channel_Request.pty(
++                recipientChannel: channel.remoteId,
++                termType: 'xterm-256color',
++                termWidth: options.width,
++                termHeight: options.height,
++                termPixelWidth: 0,
++                termPixelHeight: 0,
++                termModes: Uint8List(0),
++                wantReply: true,
++              )))) throw const SSHOwnedPtyError('ptyDenied');
++      _check();
++      final path = options.path;
++      final request = path == null
++          ? SSH_Message_Channel_Request.shell(
++              recipientChannel: channel.remoteId, wantReply: true)
++          : SSH_Message_Channel_Request.exec(
++              recipientChannel: channel.remoteId,
++              wantReply: true,
++              command: "exec '${path.replaceAll("'", "'\\''")}'");
++      if (!await channel.ownedRequest(() => _send(request))) {
++        throw const SSHOwnedPtyError('shellDenied');
++      }
++      _check();
++      _timer?.cancel();
++      _opened.complete(SSHOwnedPtySession._(this, channel));
++    } catch (error) {
++      _stop(error is SSHOwnedPtyError ? error.reason : 'unavailable');
++    }
++  }
++
++  void _accept(SSHChannelController channel) {
++    _channel = channel;
++    if (channel.remoteMaximumPacketSize <= 0) {
++      _stop('invalidPacketSize');
++      return;
++    }
++    if (_stopped) {
++      channel.destroy();
++      return;
++    }
++    channel.channel.setRequestHandler((request) {
++      if (request.requestType == SSHChannelRequestType.exitStatus) {
++        exitCode = request.exitStatus;
++        return true;
++      }
++      return false;
++    });
++  }
++
++  void _data(SSHChannelData data) {
++    if (_stopped) return;
++    try {
++      options.onData(data.bytes);
++    } catch (_) {
++      _stop('outputLimit');
++    }
++  }
++
++  void cancel() => _stop('cancelled');
++  void _stop(String reason) {
++    if (_stopped) return;
++    _stopped = true;
++    _cancellation.cancel();
++    failure = reason;
++    _timer?.cancel();
++    if (!_opened.isCompleted) _opened.completeError(SSHOwnedPtyError(reason));
++    _channel?.destroy();
++    if (!_openSent && _channel == null) {
++      _client._pendingChannelOpens.fail(_id, SSHOwnedPtyError(reason));
++      _client._channelIdAllocator.release(_id);
++      _client._ownedPtys.remove(_id);
++    }
++  }
++}
++
++/// Intentionally has no stdin, raw channel, exec or legacy upload sink.
++class SSHOwnedPtySession {
++  SSHOwnedPtySession._(this._operation, this._channel);
++  final SSHOwnedPtyOperation _operation;
++  final SSHChannelController _channel;
++  bool _writing = false;
++  int? get exitCode => _operation.exitCode;
++  String? get failure => _operation.failure;
++  Future<void> get streamsDone => _channel.channel.done;
++  bool get isClosed => _operation._stopped || _channel.ownedClosed;
++  void abort() => _operation.cancel();
++
++  Future<SSHOwnedWriteResult> sendGuardedData(
++    Uint8List bytes, {
++    required void Function() guard,
++    required SSHOwnedPtyCancellation cancellation,
++  }) async {
++    if (bytes.isEmpty || bytes.length > 65536)
++      throw const SSHOwnedPtyError('inputLimit');
++    if (_writing) throw const SSHOwnedPtyError('inputBusy');
++    _writing = true;
++    var accepted = 0;
++    final started = _operation._now;
++    Duration elapsed() => _operation._now - started;
++    void check() {
++      cancellation.check();
++      if (elapsed() >= const Duration(seconds: 15))
++        throw const SSHOwnedPtyError('timeout');
++      _operation._check();
++      if (_channel.ownedClosed) throw const SSHOwnedPtyError('closed');
++      guard();
++    }
++
++    final wait = SSHOwnedPacketWait(
++        remaining: () => const Duration(seconds: 15) - elapsed(),
++        listenCancelled: (wake) {
++          final offAction = cancellation.listen(wake);
++          final offChannel = _operation._cancellation.listen(wake);
++          return () {
++            offAction();
++            offChannel();
++          };
++        });
++
++    try {
++      while (accepted < bytes.length) {
++        check();
++        if (elapsed() >= const Duration(seconds: 15)) {
++          throw const SSHOwnedPtyError('timeout');
++        }
++        if (_channel.ownedRemoteWindow <= 0) {
++          await _waitCredit(
++              cancellation, const Duration(seconds: 15) - elapsed());
++          continue;
++        }
++        final count = [
++          bytes.length - accepted,
++          _channel.ownedRemoteWindow,
++          _channel.remoteMaximumPacketSize,
++          32768
++        ].reduce((a, b) => a < b ? a : b);
++        if (count <= 0) throw const SSHOwnedPtyError('invalidPacketSize');
++        final chunk = Uint8List.sublistView(bytes, accepted, accepted + count);
++        await _operation._send(
++            SSH_Message_Channel_Data(
++              recipientChannel: _channel.remoteId,
++              data: chunk,
++            ),
++            guard: check,
++            wait: wait, committed: () {
++          _channel.commitOwnedWindow(count);
++          accepted += count;
++        });
++      }
++      return SSHOwnedWriteResult(accepted, SSHOwnedWriteStatus.complete);
++    } catch (_) {
++      return SSHOwnedWriteResult(
++          accepted,
++          accepted == 0
++              ? SSHOwnedWriteStatus.cancelledBeforeSend
++              : SSHOwnedWriteStatus.outcomeUnknown);
++    } finally {
++      _writing = false;
++    }
++  }
++
++  Future<void> _waitCredit(
++      SSHOwnedPtyCancellation cancellation, Duration remaining) async {
++    if (remaining <= Duration.zero) throw const SSHOwnedPtyError('timeout');
++    final result = Completer<void>();
++    void wake() {
++      if (!result.isCompleted) result.complete();
++    }
++
++    final off = _channel.listenOwnedWindow(wake);
++    final cancel = cancellation.listen(wake);
++    final timer = Timer(remaining, () {
++      if (!result.isCompleted)
++        result.completeError(const SSHOwnedPtyError('timeout'));
++    });
++    try {
++      if (_channel.ownedRemoteWindow > 0 ||
++          _channel.ownedClosed ||
++          cancellation.isCancelled) wake();
++      await result.future;
++    } finally {
++      off();
++      cancel();
++      timer.cancel();
++    }
++  }
++
++  Future<void> resizeGuarded(
++      int width, int height, void Function() guard) async {
++    if (width < 2 || width > 512 || height < 1 || height > 200) {
++      throw const SSHOwnedPtyError('invalidArgument');
++    }
++    await _operation._send(
++        SSH_Message_Channel_Request.windowChange(
++          recipientChannel: _channel.remoteId,
++          termWidth: width,
++          termHeight: height,
++          termPixelWidth: 0,
++          termPixelHeight: 0,
++        ),
++        guard: guard);
++  }
++}
+diff --git a/lib/src/ssh_transport.dart b/lib/src/ssh_transport.dart
+--- a/lib/src/ssh_transport.dart
++++ b/lib/src/ssh_transport.dart
+@@ -42,6 +42,21 @@
+ typedef SSHHostkeyVerifyHandler = FutureOr<bool> Function(
+   String type,
+   Uint8List fingerprint,
++  Uint8List exactHostKeyBlob,
++);
++
++typedef SSHHostkeyChangedHandler = FutureOr<void> Function(
++  String type,
++  Uint8List fingerprint,
++  Uint8List exactHostKeyBlob,
++);
++
++/// CPU verifier hook; the application installs an owned, bounded worker pool.
++typedef SSHHostSignatureVerifier = FutureOr<bool> Function(
++  SSHHostkeyType negotiatedType,
++  Uint8List keyBytes,
++  Uint8List signatureBytes,
++  Uint8List exchangeHash,
+ );
+ 
+ Uint8List _hostkeyFingerprint(Uint8List hostkey) {
+@@ -98,6 +113,11 @@
+   /// Function called when the hostkey has been received. Returns true if the
+   /// hostkey is valid, false to reject key and disconnect.
+   final SSHHostkeyVerifyHandler? onVerifyHostKey;
++
++  /// Notification only: a changed verified rekey is always rejected.
++  final SSHHostkeyChangedHandler? onHostKeyChanged;
++
++  final SSHHostSignatureVerifier? onVerifyHostSignature;
+ 
+   /// Function called when the transport is ready to send data.
+   final SSHTransportReadyHandler? onReady;
+@@ -147,6 +167,8 @@
+     this.printTrace,
+     this.algorithms = const SSHAlgorithms(),
+     this.onVerifyHostKey,
++    this.onHostKeyChanged,
++    this.onVerifyHostSignature,
+     this.onReady,
+     this.onPacket,
+     this.onMessage,
+@@ -249,6 +271,7 @@
+   /// only latches whether verification ever succeeded, not which key it
+   /// succeeded for.
+   Uint8List? _verifiedHostkeyFingerprint;
++  Uint8List? _verifiedHostkeyBlob;
+ 
+   /// Host key type verified during the first key exchange, checked alongside
+   /// [_verifiedHostkeyFingerprint] on rekey.
+@@ -367,6 +390,40 @@
+   /// (if encryption has been negotiated), and writes the bytes to the underlying socket.
+   /// If a key exchange is currently in progress, packets are queued and sent after
+   /// the key exchange completes (except for key exchange control messages which bypass the queue).
++  bool get isKexInProgress => _kexInProgress;
++  final _ownedReadyListeners = <void Function()>{};
++  int get ownedReadyListenerCount => _ownedReadyListeners.length;
++  void Function() listenOwnedReady(void Function() callback) {
++    _ownedReadyListeners.add(callback);
++    return () => _ownedReadyListeners.remove(callback);
++  }
++
++  void _signalOwnedReady() {
++    scheduleMicrotask(() {
++      for (final listener in List.of(_ownedReadyListeners)) {
++        if (_ownedReadyListeners.contains(listener)) listener();
++      }
++    });
++  }
++
++  Future<void> waitForKexReady() {
++    if (isClosed) return Future.error(SSHStateError('Transport is closed'));
++    return _kexInProgress ? _waitForNewKeys() : Future.value();
++  }
++
++  /// False is effect-free: no cipher/sequence update and no rekey buffering.
++  bool trySendPacket(Uint8List payload) {
++    if (_kexInProgress) return false;
++    if (isClosed) throw SSHStateError('Transport is closed');
++    try {
++      sendPacket(payload);
++      return true;
++    } catch (error, stack) {
++      closeWithError(SSHInternalError(error), stack);
++      rethrow;
++    }
++  }
++
+   void sendPacket(Uint8List data) {
+     if (isClosed) {
+       throw SSHStateError('Transport is closed');
+@@ -598,6 +655,7 @@
+     _socketSubscription?.cancel();
+     _socketSubscription = null;
+     _doneCompleter.complete();
++    _signalOwnedReady();
+     _failPendingRekey(
+       SSHStateError('Transport closed before the key exchange completed'),
+       StackTrace.current,
+@@ -612,6 +670,7 @@
+     _socketSubscription?.cancel();
+     _socketSubscription = null;
+     _doneCompleter.completeError(error, stackTrace ?? StackTrace.current);
++    _signalOwnedReady();
+     _failPendingRekey(error, stackTrace ?? StackTrace.current);
+     socket.destroy();
+   }
+@@ -633,7 +692,13 @@
+   }
+ 
+   /// Callback triggered when new raw bytes are received from the socket.
++  static const maxBufferedBytes = 1024 * 1024;
+   void _onSocketData(Uint8List data) {
++    if (isClosed) return;
++    if (data.length > maxBufferedBytes - _buffer.length) {
++      closeWithError(SSHResourceLimitError());
++      return;
++    }
+     _buffer.add(data);
+     _hasNewData = true;
+     _scheduleProcessData();
+@@ -1381,33 +1446,94 @@
+     return writer.takeBytes();
+   }
+ 
+-  /// Verifies the server's public host key signature against the computed exchange hash.
+-  bool _verifyHostkey({
++  /// Bounded linear-time format checks; no expensive public-key math here.
++  static bool isHostSignatureEncodingValid({
++    required SSHHostkeyType negotiatedType,
+     required Uint8List keyBytes,
+     required Uint8List signatureBytes,
+     required Uint8List exchangeHash,
+   }) {
+-    switch (_hostkeyType) {
+-      case SSHHostkeyType.ed25519:
+-        final publicKey = SSHEd25519PublicKey.decode(keyBytes);
+-        final signature = SSHEd25519Signature.decode(signatureBytes);
+-        return publicKey.verify(exchangeHash, signature);
+-      case SSHHostkeyType.rsaSha1:
+-      case SSHHostkeyType.rsaSha256:
+-      case SSHHostkeyType.rsaSha512:
+-        final publicKey = SSHRsaPublicKey.decode(keyBytes);
+-        final signature = SSHRsaSignature.decode(signatureBytes);
+-        return publicKey.verify(exchangeHash, signature);
+-      case SSHHostkeyType.ecdsa256:
+-      case SSHHostkeyType.ecdsa384:
+-      case SSHHostkeyType.ecdsa521:
+-        final publicKey = SSHEcdsaPublicKey.decode(keyBytes);
+-        final signature = SSHEcdsaSignature.decode(signatureBytes);
+-        return publicKey.verify(exchangeHash, signature);
+-      case null:
+-        throw StateError('No hostkey type negotiated');
+-      default:
+-        throw UnimplementedError('Unsupported hostkey type: $_hostkeyType');
++    if (keyBytes.isEmpty ||
++        keyBytes.length > 16384 ||
++        signatureBytes.isEmpty ||
++        signatureBytes.length > 16384 ||
++        !const [32, 48, 64].contains(exchangeHash.length)) return false;
++    try {
++      late SSHHostKey publicKey;
++      late SSHSignature signature;
++      switch (negotiatedType) {
++        case SSHHostkeyType.ed25519:
++          final key = SSHEd25519PublicKey.decode(keyBytes);
++          final sig = SSHEd25519Signature.decode(signatureBytes);
++          if (key.key.length != 32 || sig.signature.length != 64) return false;
++          publicKey = key;
++          signature = sig;
++          break;
++        case SSHHostkeyType.rsaSha256:
++        case SSHHostkeyType.rsaSha512:
++          final key = SSHRsaPublicKey.decode(keyBytes);
++          final sig = SSHRsaSignature.decode(signatureBytes);
++          if (sig.type != negotiatedType.name ||
++              key.e < BigInt.from(3) ||
++              !key.e.isOdd ||
++              key.n <= key.e ||
++              !key.n.isOdd) return false;
++          publicKey = key;
++          signature = sig;
++          break;
++        case SSHHostkeyType.ecdsa256:
++        case SSHHostkeyType.ecdsa384:
++        case SSHHostkeyType.ecdsa521:
++          final key = SSHEcdsaPublicKey.decode(keyBytes);
++          final sig = SSHEcdsaSignature.decode(signatureBytes);
++          if (key.type != negotiatedType.name ||
++              sig.type != negotiatedType.name ||
++              key.type != 'ecdsa-sha2-${key.curveId}') return false;
++          publicKey = key;
++          signature = sig;
++          break;
++        default:
++          return false; // Includes legacy RSA/SHA1.
++      }
++      // Re-encode to reject trailing fields and noncanonical mpint encodings.
++      return constantTimeEquals(publicKey.encode(), keyBytes) &&
++          constantTimeEquals(signature.encode(), signatureBytes);
++    } catch (_) {
++      return false;
++    }
++  }
++
++  /// Pure verifier shared with the application's owned crypto worker.
++  static bool verifyHostSignature({
++    required SSHHostkeyType negotiatedType,
++    required Uint8List keyBytes,
++    required Uint8List signatureBytes,
++    required Uint8List exchangeHash,
++  }) {
++    if (!isHostSignatureEncodingValid(
++        negotiatedType: negotiatedType,
++        keyBytes: keyBytes,
++        signatureBytes: signatureBytes,
++        exchangeHash: exchangeHash)) return false;
++    try {
++      switch (negotiatedType) {
++        case SSHHostkeyType.ed25519:
++          return SSHEd25519PublicKey.decode(keyBytes)
++              .verify(exchangeHash, SSHEd25519Signature.decode(signatureBytes));
++        case SSHHostkeyType.rsaSha256:
++        case SSHHostkeyType.rsaSha512:
++          return SSHRsaPublicKey.decode(keyBytes)
++              .verify(exchangeHash, SSHRsaSignature.decode(signatureBytes));
++        case SSHHostkeyType.ecdsa256:
++        case SSHHostkeyType.ecdsa384:
++        case SSHHostkeyType.ecdsa521:
++          return SSHEcdsaPublicKey.decode(keyBytes)
++              .verify(exchangeHash, SSHEcdsaSignature.decode(signatureBytes));
++        default:
++          return false;
++      }
++    } catch (_) {
++      return false;
+     }
+   }
+ 
+@@ -1874,11 +2000,25 @@
+ 
+     if (!disableHostkeyVerification) {
+       printDebug?.call('SSHTransport._verifyHostkey');
+-      final verified = _verifyHostkey(
+-        keyBytes: hostkey,
+-        signatureBytes: hostSignature,
+-        exchangeHash: exchangeHash,
+-      );
++      final encodingValid = isHostSignatureEncodingValid(
++          negotiatedType: _hostkeyType!,
++          keyBytes: hostkey,
++          signatureBytes: hostSignature,
++          exchangeHash: exchangeHash);
++      final verifier = onVerifyHostSignature;
++      final verified = encodingValid &&
++          (verifier == null
++              ? verifyHostSignature(
++                  negotiatedType: _hostkeyType!,
++                  keyBytes: hostkey,
++                  signatureBytes: hostSignature,
++                  exchangeHash: exchangeHash)
++              : await verifier(
++                  _hostkeyType!,
++                  Uint8List.fromList(hostkey),
++                  Uint8List.fromList(hostSignature),
++                  Uint8List.fromList(exchangeHash)));
++      if (isClosed) return; // A cancelled/closed handshake never resumes late.
+       if (!verified) throw SSHHostkeyError('Signature verification failed');
+     }
+ 
+@@ -1894,9 +2034,8 @@
+       // the same key the user (or [onVerifyHostKey]) already approved.
+       // OpenSSH rejects a host key change during rekey; do the same.
+       final verifiedFingerprint = _verifiedHostkeyFingerprint;
+-      if (verifiedFingerprint == null ||
+-          _verifiedHostkeyType != _hostkeyType ||
+-          !constantTimeEquals(verifiedFingerprint, fingerprint)) {
++      final verifiedBlob = _verifiedHostkeyBlob;
++      if (verifiedBlob == null || !constantTimeEquals(verifiedBlob, hostkey)) {
+         closeWithError(
+           SSHHostkeyError(
+             'Host key changed during rekey: was $_verifiedHostkeyType '
+@@ -1905,6 +2044,11 @@
+             '${utf8.decode(fingerprint, allowMalformed: true)}',
+           ),
+         );
++        await onHostKeyChanged?.call(
++          _hostkeyType!.name,
++          Uint8List.fromList(fingerprint),
++          Uint8List.fromList(hostkey),
++        );
+         return;
+       }
+       _sendNewKeys();
+@@ -1917,9 +2061,14 @@
+     // bracket it in the debug log rather than leaving a silent gap.
+     printDebug?.call('SSHTransport.onVerifyHostKey');
+     final userVerified = onVerifyHostKey != null
+-        ? await Future.value(onVerifyHostKey!(_hostkeyType!.name, fingerprint))
+-        : true;
++        ? await Future.value(onVerifyHostKey!(
++            _hostkeyType!.name,
++            Uint8List.fromList(fingerprint),
++            Uint8List.fromList(hostkey),
++          ))
++        : false;
+     printDebug?.call('SSHTransport.onVerifyHostKey = $userVerified');
++    if (isClosed) return;
+ 
+     if (!userVerified) {
+       closeWithError(SSHHostkeyError('Hostkey verification failed'));
+@@ -1928,6 +2077,7 @@
+ 
+     _hostkeyVerified = true;
+     _verifiedHostkeyFingerprint = fingerprint;
++    _verifiedHostkeyBlob = Uint8List.fromList(hostkey);
+     _verifiedHostkeyType = _hostkeyType;
+     _sendNewKeys();
+     _applyLocalKeys();
+@@ -1956,6 +2106,7 @@
+ 
+     // Key exchange round finished.
+     _kexInProgress = false;
++    _signalOwnedReady();
+     _sentKexInit = false;
+     _isFirstKex = false;
+     _kex = null;

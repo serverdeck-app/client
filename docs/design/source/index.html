@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="ru" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <title>ServerDeck — общие компоненты</title>
+  <link rel="icon" type="image/svg+xml" href="assets/logos/mark-dark.svg">
+  <link rel="stylesheet" href="style.css">
+
+
+  <!-- ATLAS_SCRIPTS -->
+</head>
+<body>
+  <header class="atlas-header" id="atlas-header">
+    <a class="atlas-brand" href="./ServerDeck-design.html"><span class="atlas-symbol">SD</span><span>Общие компоненты<small>Material 3 · ServerDeck</small></span></a>
+    <div class="viewport-controls" role="group" aria-label="Ширина макета">
+      <button type="button" data-width="1100" class="active">Desktop <span>1100</span></button>
+      <button type="button" data-width="800">Compact <span>800</span></button>
+      <button type="button" data-width="390">Mobile <span>390</span></button>
+      <button type="button" data-width="360">Small <span>360</span></button>
+    </div>
+    <div class="atlas-tools">
+      <button type="button" id="theme-button" class="atlas-tool" aria-label="Переключить тему">☼ <span>Светлая</span></button>
+
+    </div>
+  </header>
+  <section id="component-gallery" class="component-layout"><aside class="component-index"><h2>30 готовых семейств</h2><nav id="component-list" aria-label="Каталог компонентов"></nav></aside><main class="component-workspace"><header class="component-header"><div class="component-meta"><code id="component-id"></code><code>Material 3 / Deck</code></div><h1 id="component-title"></h1><p id="component-description"></p><div class="sample-actions" style="margin-top:16px"><label>Состояние <select id="component-state"><option value="default">Обычное</option><option value="focus">Фокус</option><option value="selected">Выбрано</option><option value="disabled">Недоступно</option><option value="pending">Выполняется</option><option value="error">Ошибка</option><option value="empty">Пусто</option></select></label></div></header><section class="component-preview" id="component-preview" style="--frame-width:1100px"></section><div class="component-details"><section><h2>Использование</h2><p id="component-usage"></p></section><section><h2>Единые правила</h2><p>Две темы. Отступы 4 / 8 / 12 / 16 / 24 / 32. Поля и действия от 44 px. Контекст и состояния передаёт владелец экрана. Здесь только синтетические данные.</p></section></div><section id="component-contract" class="component-header"></section></main></section>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <dialog id="demo-dialog"><form method="dialog"><div class="dialog-heading"><h2 id="dialog-title">Демонстрация</h2><button aria-label="Закрыть" class="icon-button">×</button></div><p id="dialog-message"></p><button class="button primary">Понятно</button></form></dialog>
+</body>
+</html>
