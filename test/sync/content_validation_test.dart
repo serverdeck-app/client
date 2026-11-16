@@ -44,7 +44,7 @@ Map<String, Object?> card({int number = 20, int owner = 10}) {
   );
   return {
     'kind': 'software',
-    'version': 1,
+    'version': 2,
     'card': {
       'softwareId': id(number),
       'profileId': id(owner),
@@ -57,6 +57,7 @@ Map<String, Object?> card({int number = 20, int owner = 10}) {
       'service': 'svc',
       'dataPaths': ['/data'],
       'configPaths': <String>[],
+      'updateInstructions': null,
       'createdAt': 1,
       'updatedAt': 2,
     },
@@ -99,7 +100,30 @@ PortableSyncRoot root(List<SyncRootEntry> entries) {
 
 void main() {
   test(
-    'exact32KiB valid local card remains portable at its allowed boundary',
+    'software bundle2 preserves text and rejects old/future/missing content',
+    () {
+      final value = card();
+      (value['card']! as Map)['updateInstructions'] = '  releases\r\n😀  ';
+      expect(PortableSyncCard.parse(value).toJson(), value);
+      for (final v in [1, 3]) {
+        expect(
+          () => PortableSyncCard.parse({...value, 'version': v}),
+          throwsA(isA<SyncUnsupportedContentVersion>()),
+        );
+      }
+      final missing = Map<String, Object?>.from(value['card']! as Map)
+        ..remove('updateInstructions');
+      expect(
+        () => PortableSyncCard.parse({...value, 'card': missing}),
+        invalid,
+      );
+      (value['card']! as Map)['updateInstructions'] = '  ';
+      expect(() => PortableSyncCard.parse(value), invalid);
+    },
+  );
+
+  test(
+    'exact32794byte valid local card remains portable at its allowed boundary',
     () {
       final target = validateProfileValues(
         displayName: 'target',
@@ -136,11 +160,20 @@ void main() {
               ),
             )
             .length,
+        32794,
+      );
+      final oldProjection = SoftwareCardView(
+        record,
+        currentTarget: true,
+      ).toJson()..remove('updateInstructions');
+      expect(
+        utf8.encode(jsonEncode(oldProjection)).length,
         32768,
+        reason: 'The pre-extension boundary fixture must remain unchanged',
       );
       final data = {
         'kind': 'software',
-        'version': 1,
+        'version': 2,
         'card': {
           'softwareId': record.softwareId,
           'profileId': record.profileId,
@@ -153,11 +186,12 @@ void main() {
           'service': record.service,
           'dataPaths': record.dataPaths,
           'configPaths': record.configPaths,
+          'updateInstructions': record.updateInstructions,
           'createdAt': record.createdAt,
           'updatedAt': record.updatedAt,
         },
       };
-      expect(canonicalSyncJson(data).length, 32762);
+      expect(canonicalSyncJson(data).length, 32788);
       expect(PortableSyncCard.parse(data).toJson(), data);
     },
   );

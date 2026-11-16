@@ -49,6 +49,7 @@ void main() {
     'service': null,
     'dataPaths': <String>[],
     'configPaths': <String>[],
+    'updateInstructions': null,
   };
   setUp(() async {
     h = FeatureHarness();
@@ -139,6 +140,67 @@ void main() {
     await port.events.close();
     await owner.dispose();
     await h.dispose();
+  });
+  test(
+    'update check prepares both kinds offline and never opens console',
+    () async {
+      final saved = await call('software.save', {
+        'profileId': profile,
+        'mutationId': h.newId(),
+        'card': {
+          ...card(),
+          'updateInstructions': '  apt package redis\nsource: vendor  ',
+        },
+      });
+      final id = (saved['value'] as Map)['entityId'];
+      final before = h.repository.state.softwareEvents.length;
+      for (final kind in ['software', 'os']) {
+        final result = await call('software.updates.check', {
+          'profileId': profile,
+          'kind': kind,
+          if (kind == 'software') 'softwareId': id,
+        });
+        expect(result['ok'], true, reason: '$result');
+        final v = result['value'] as Map;
+        expect(v['profileId'], profile);
+        expect(v['connectionRevision'], 1);
+        expect(v['prompt'], contains('только проверить'));
+        expect(v['prompt'], contains('источник обновлений ещё не проверен'));
+        expect(v['prompt'], contains('каждые 5 минут или 60 минут'));
+        if (kind == 'software') {
+          expect(
+            (v['card'] as Map)['updateInstructions'],
+            '  apt package redis\nsource: vendor  ',
+          );
+        } else {
+          expect(v['card'], isNull);
+        }
+      }
+      expect(port.openings, isEmpty);
+      expect(h.repository.state.softwareEvents.length, before);
+    },
+  );
+  test('update schema strictly distinguishes software and os; absent new card field rejected', () {
+    for (final args in [
+      {'profileId': profile, 'kind': 'software'},
+      {'profileId': profile, 'kind': 'os', 'softwareId': null},
+      {'profileId': profile, 'kind': 'os', 'softwareId': h.newId()},
+      {'profileId': profile, 'kind': 'other'},
+      {'profileId': 'invalid', 'kind': 'os'},
+    ]) {
+      expect(
+        () => schemas.arguments('software.updates.check', args),
+        throwsA(isA<SchemaFailure>()),
+      );
+    }
+    expect(
+      () => schemas.arguments('software.save', {
+        'profileId': profile,
+        'mutationId': h.newId(),
+        'card': card()..remove('updateInstructions'),
+      }),
+      throwsA(isA<SchemaFailure>()),
+    );
   });
   test('discovery and config commands use shared console; retry never resends input', () async {
     final opened = await call('console.open', {
@@ -353,6 +415,7 @@ void main() {
           ...card(name: 'Large$i'),
           'dataPaths': paths,
           'configPaths': paths,
+          'updateInstructions': null,
         },
       });
       expect(created['ok'], true);
@@ -381,9 +444,9 @@ void main() {
     expect(cursor, isNull);
     expect(seen.length, 30);
   });
-  test('registry version3 retains original21 definitions except additive reconnect status', () {
-    expect(registry['contractVersion'], 3);
-    expect(schemas.tools.length, 27);
+  test('registry version4 retains original21 definitions except additive reconnect status', () {
+    expect(registry['contractVersion'], 4);
+    expect(schemas.tools.length, 28);
     final original =
         jsonDecode(jsonEncode(schemas.tools.take(21).toList())) as List;
     for (final tool in original) {

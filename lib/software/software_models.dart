@@ -3,7 +3,9 @@ import 'dart:convert';
 import '../domain/models.dart';
 import '../storage/records.dart';
 
-const softwareCardBytes = 32 * 1024;
+// Preserve every formerly valid 32KiB card: the new required nullable JSON
+// property adds exactly 26 bytes even when no instructions have been stored.
+const softwareCardBytes = 32 * 1024 + 26;
 const softwareEventBytes = 8 * 1024;
 const softwareCardLimit = 10000;
 const softwareProfileCardLimit = 1000;
@@ -60,7 +62,7 @@ List<String> _paths(List<String> values) {
   return List.unmodifiable(values);
 }
 
-/// Full replacement of the five user-maintained fields. Never executable input.
+/// Full replacement of the six user-maintained fields. Never executable input.
 final class SoftwareCardInput {
   SoftwareCardInput({
     required String name,
@@ -68,23 +70,26 @@ final class SoftwareCardInput {
     required String? service,
     required List<String> dataPaths,
     required List<String> configPaths,
+    String? updateInstructions,
   }) : name = _string(name, max: 100, required: true),
        version = version == null ? null : _string(version, max: 256),
        service = service == null ? null : _string(service, max: 256),
        dataPaths = _paths(dataPaths),
        configPaths = _paths(configPaths),
+       updateInstructions = _instructions(updateInstructions),
        receiptPayload = Map.unmodifiable({
          'name': name,
          'version': version,
          'service': service,
          'dataPaths': List<String>.unmodifiable(dataPaths),
          'configPaths': List<String>.unmodifiable(configPaths),
+         'updateInstructions': updateInstructions,
        });
 
   /// Exact typed spelling for the existing receipt HMAC; never a public view.
   final Map<String, Object?> receiptPayload;
   final String name;
-  final String? version, service;
+  final String? version, service, updateInstructions;
   final List<String> dataPaths, configPaths;
   Map<String, Object?> toJson() => {
     'name': name,
@@ -92,7 +97,17 @@ final class SoftwareCardInput {
     'service': service,
     'dataPaths': dataPaths,
     'configPaths': configPaths,
+    'updateInstructions': updateInstructions,
   };
+}
+
+String? _instructions(String? value) {
+  if (value == null) return null;
+  if (!isWellFormedUnicode(value) ||
+      value.contains('\u0000') ||
+      utf8.encode(value).length > 8192)
+    _invalid();
+  return value.trim().isEmpty ? null : value;
 }
 
 final class SoftwareNoteInput {
@@ -125,7 +140,7 @@ final class SoftwareNoteInput {
   }
 }
 
-sealed class SoftwareProjection {
+abstract class SoftwareProjection {
   const SoftwareProjection();
   Map<String, Object?> toJson();
 }
@@ -147,6 +162,7 @@ final class SoftwareCardView extends SoftwareProjection {
         service: record.service,
         dataPaths: record.dataPaths,
         configPaths: record.configPaths,
+        updateInstructions: record.updateInstructions,
       ) {
     _identity(softwareId, profileId, [revision, createdAt, updatedAt]);
     if (revision < 1) _invalid();
@@ -205,6 +221,7 @@ final class SoftwareEventView extends SoftwareProjection {
             'service',
             'dataPaths',
             'configPaths',
+            'updateInstructions',
           }.contains(f),
         ) ||
         (kind != 'updated' && changedFields.isNotEmpty))

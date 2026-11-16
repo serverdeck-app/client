@@ -455,7 +455,7 @@ class ApplyHarness {
 
 PortableSyncCard cardContent(SoftwareCardRecord c) => PortableSyncCard.parse({
   'kind': 'software',
-  'version': 1,
+  'version': 2,
   'card': {
     'softwareId': c.softwareId,
     'profileId': c.profileId,
@@ -468,6 +468,7 @@ PortableSyncCard cardContent(SoftwareCardRecord c) => PortableSyncCard.parse({
     'service': c.service,
     'dataPaths': c.dataPaths,
     'configPaths': c.configPaths,
+    'updateInstructions': c.updateInstructions,
     'createdAt': c.createdAt,
     'updatedAt': c.updatedAt,
   },

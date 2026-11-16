@@ -1184,4 +1184,203 @@ void main() {
     expect(h.repository.state.softwareCards, isEmpty);
     await tester.pumpWidget(const SizedBox());
   });
+  testSoftwareWidgets(
+    'update instructions are literal and both copy tasks have no command or write effects',
+    (tester) async {
+      const text = '  vendor releases\r\ncheck version 😀  ';
+      final id = await seed(
+        tester,
+        input: SoftwareCardInput(
+          name: 'Redis',
+          version: '1.0',
+          service: null,
+          dataPaths: [],
+          configPaths: [],
+          updateInstructions: text,
+        ),
+      );
+      final copied = <String>[];
+      await show(tester, copyText: (s) async => copied.add(s));
+      final count = h.repository.state.softwareEvents.length;
+      await click(tester, 'Скопировать задание проверки обновлений ОС');
+      expect(copied.single, contains('ОС и системных пакетов'));
+      await toggle(tester, id);
+      expect(find.text(text), findsOneWidget);
+      await click(tester, 'Скопировать задание проверки обновления');
+      expect(copied.last, contains(text));
+      expect(copied.last, contains(id));
+      expect(copied.last, contains('только проверить'));
+      expect(h.repository.state.softwareEvents.length, count);
+      expect(h.repository.state.softwareCards[id]!.version, '1.0');
+      await click(tester, 'Изменить карточку');
+      expect(
+        tester
+            .widget<DeckTextField>(
+              find.byKey(const ValueKey('software-updateInstructions')),
+            )
+            .controller!
+            .text,
+        text,
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('software-updateInstructions')),
+        'new\nsource',
+      );
+      await click(tester, 'Сохранить карточку');
+      expect(
+        h.repository.state.softwareCards[id]!.updateInstructions,
+        'new\nsource',
+      );
+    },
+  );
+  testSoftwareWidgets(
+    'clipboard failure permits explicit retry without changing inventory',
+    (tester) async {
+      var attempts = 0;
+      await show(
+        tester,
+        copyText: (_) async {
+          if (++attempts == 1) throw StateError('clipboard');
+        },
+      );
+      await click(tester, 'Скопировать задание проверки обновлений ОС');
+      expect(attempts, 1);
+      expect(h.repository.state.softwareEvents, isEmpty);
+      await click(tester, 'Скопировать задание проверки обновлений ОС');
+      expect(attempts, 2);
+      expect(h.repository.state.softwareCards, isEmpty);
+    },
+  );
+  testSoftwareWidgets(
+    'closing details during pending preparation cancels clipboard delivery',
+    (tester) async {
+      final id = await seed(tester);
+      final copied = <String>[];
+      await show(tester, copyText: (s) async => copied.add(s));
+      await toggle(tester, id);
+      final blocked = Completer<void>();
+      h.authorizationWait = blocked.future;
+      try {
+        tester
+            .widget<DeckButton>(
+              action(id, 'Скопировать задание проверки обновления'),
+            )
+            .onPressed!();
+        await tester.pump();
+        expect(
+          tester
+              .widget<DeckButton>(
+                action(id, 'Скопировать задание проверки обновления'),
+              )
+              .onPressed,
+          isNull,
+        );
+        tester
+            .widget<DeckButton>(
+              find.widgetWithText(DeckButton, 'Закрыть подробности'),
+            )
+            .onPressed!();
+        await tester.pump();
+      } finally {
+        h.authorizationWait = null;
+        blocked.complete();
+        await tester.runAsync(() => featureTurns());
+        await tester.pumpAndSettle();
+      }
+      expect(copied, isEmpty);
+    },
+  );
+  for (final change in [
+    'profile',
+    'connectionRevision',
+    'owner',
+    'revision',
+    'delete',
+    'selection',
+    'dispose',
+  ]) {
+    testSoftwareWidgets(
+      'pending update copy is cancelled by $change without clipboard or domain writes',
+      (tester) async {
+        final id = await seed(tester),
+            otherId = await seed(tester, name: 'Other');
+        final copied = <String>[];
+        await show(tester, copyText: (text) async => copied.add(text));
+        await toggle(tester, id);
+        final blocked = Completer<void>();
+        SoftwareOwner? retired;
+        final writes = h.repository.committedWrites;
+        final events = h.repository.state.softwareEvents.length;
+        h.authorizationWait = blocked.future;
+        try {
+          tester
+              .widget<DeckButton>(
+                action(id, 'Скопировать задание проверки обновления'),
+              )
+              .onPressed!();
+          await tester.pump();
+          switch (change) {
+            case 'profile':
+            case 'connectionRevision':
+              final p = h.profile;
+              await show(
+                tester,
+                settle: false,
+                copyText: (text) async => copied.add(text),
+                target: ProfileView(
+                  profileId: change == 'profile' ? featureId(2) : p.profileId,
+                  revision: p.revision,
+                  connectionRevision: p.connectionRevision + 1,
+                  displayName: p.displayName,
+                  host: p.host,
+                  port: p.port,
+                  username: p.username,
+                  authKind: p.authKind,
+                  hasCredential: p.hasCredential,
+                  endpointId: p.endpointId,
+                ),
+              );
+            case 'owner':
+              retired = owner;
+              owner = SoftwareOwner(
+                gate: h.gate,
+                repository: h.repository,
+                receipts: ReceiptBook(h.signer, h.clock.now),
+                newId: h.newId,
+                utcNow: h.clock.now,
+              );
+              await show(
+                tester,
+                settle: false,
+                copyText: (text) async => copied.add(text),
+              );
+            case 'revision':
+              h.repository.state.softwareCards[id]!.revision++;
+            case 'delete':
+              h.repository.state.softwareCards.remove(id);
+            case 'selection':
+              final table = tester.widget<DeckCollection<SoftwareCardView>>(
+                find.byType(DeckCollection<SoftwareCardView>),
+              );
+              final other = table.rows.singleWhere(
+                (row) => row.softwareId == otherId,
+              );
+              table.actions!(other).whereType<DeckButton>().first.onPressed!();
+              await tester.pump();
+            case 'dispose':
+              await tester.pumpWidget(const SizedBox());
+          }
+        } finally {
+          h.authorizationWait = null;
+          blocked.complete();
+          await tester.runAsync(() => featureTurns());
+          await tester.pumpAndSettle();
+          if (retired != null) await tester.runAsync(retired.dispose);
+        }
+        expect(copied, isEmpty);
+        expect(h.repository.committedWrites, writes);
+        expect(h.repository.state.softwareEvents.length, events);
+      },
+    );
+  }
 }

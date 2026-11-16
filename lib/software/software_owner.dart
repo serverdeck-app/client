@@ -12,6 +12,7 @@ import '../storage/domain_repository.dart';
 import '../storage/records.dart';
 import '../sync/sync_repository.dart';
 import 'software_models.dart';
+import 'update_prompt.dart';
 
 /// Local metadata only. All actors share the root's gate and repository.
 final class SoftwareOwner implements RuntimeCapability, Listenable {
@@ -100,6 +101,35 @@ final class SoftwareOwner implements RuntimeCapability, Listenable {
           }),
         ),
       );
+
+  Future<OperationResult<SoftwareValue>> prepareUpdateCheck(
+    Actor actor,
+    String profileId, {
+    required String kind,
+    String? softwareId,
+  }) => gate.submit(
+    actor,
+    (context) => context.read(
+      () => repository.read((r) {
+        _admit();
+        _uuid(profileId);
+        if ((kind != 'software' && kind != 'os') ||
+            (kind == 'software' ? softwareId == null : softwareId != null))
+          _invalid();
+        if (softwareId != null) _uuid(softwareId, OperationField.softwareId);
+        final profile = _profile(r, profileId);
+        SoftwareCardView? card;
+        if (softwareId != null) {
+          final record = _card(r, softwareId, profileId: profileId);
+          if (record.endpointId != profile.endpointId) {
+            throw const OperationFailure(FailureCode.conflict);
+          }
+          card = SoftwareCardView(record, currentTarget: true);
+        }
+        return SoftwareValue(SoftwareUpdateCheck(profile, card));
+      }),
+    ),
+  );
 
   Future<OperationResult<SoftwareValue>> list(
     Actor actor,
@@ -314,6 +344,7 @@ final class SoftwareOwner implements RuntimeCapability, Listenable {
         ..service = card.service
         ..dataPaths = List.of(card.dataPaths)
         ..configPaths = List.of(card.configPaths)
+        ..updateInstructions = card.updateInstructions
         ..updatedAt = utcNow();
       SoftwareCardView(record, currentTarget: true);
       r.putSoftwareCard(record);

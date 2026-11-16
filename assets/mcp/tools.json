@@ -1,5 +1,5 @@
 {
-  "contractVersion": 3,
+  "contractVersion": 4,
   "mcpProtocolVersion": "2025-11-25",
   "tools": [
     {
@@ -13262,6 +13262,18 @@
                 "maxItems": 16,
                 "uniqueItems": true,
                 "description": "Literal absolute POSIX paths; each <=1024 UTF8 bytes; no CR/LF/NUL; owner validates Unicode."
+              },
+              "updateInstructions": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 8192
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Literal multiline instructions for external AI; <=8192 UTF8 bytes; owner validates Unicode/NUL; whitespace-only becomes null. Never executed."
               }
             },
             "required": [
@@ -13269,7 +13281,8 @@
               "version",
               "service",
               "dataPaths",
-              "configPaths"
+              "configPaths",
+              "updateInstructions"
             ],
             "additionalProperties": false
           },
@@ -13378,6 +13391,18 @@
                 "type": "integer",
                 "minimum": -9007199254740991,
                 "maximum": 9007199254740991
+              },
+              "updateInstructions": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 8192
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Literal multiline instructions for external AI; <=8192 UTF8 bytes; owner validates Unicode/NUL; whitespace-only becomes null. Never executed."
               }
             },
             "required": [
@@ -13392,7 +13417,8 @@
               "configPaths",
               "revision",
               "createdAt",
-              "updatedAt"
+              "updatedAt",
+              "updateInstructions"
             ],
             "additionalProperties": false
           },
@@ -13474,10 +13500,11 @@
                         "version",
                         "service",
                         "dataPaths",
-                        "configPaths"
+                        "configPaths",
+                        "updateInstructions"
                       ]
                     },
-                    "maxItems": 5,
+                    "maxItems": 6,
                     "uniqueItems": true
                   },
                   "actorKind": {
@@ -13805,6 +13832,18 @@
                 "maxItems": 16,
                 "uniqueItems": true,
                 "description": "Literal absolute POSIX paths; each <=1024 UTF8 bytes; no CR/LF/NUL; owner validates Unicode."
+              },
+              "updateInstructions": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 8192
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Literal multiline instructions for external AI; <=8192 UTF8 bytes; owner validates Unicode/NUL; whitespace-only becomes null. Never executed."
               }
             },
             "required": [
@@ -13812,7 +13851,8 @@
               "version",
               "service",
               "dataPaths",
-              "configPaths"
+              "configPaths",
+              "updateInstructions"
             ],
             "additionalProperties": false
           },
@@ -13921,6 +13961,18 @@
                 "type": "integer",
                 "minimum": -9007199254740991,
                 "maximum": 9007199254740991
+              },
+              "updateInstructions": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 8192
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Literal multiline instructions for external AI; <=8192 UTF8 bytes; owner validates Unicode/NUL; whitespace-only becomes null. Never executed."
               }
             },
             "required": [
@@ -13935,7 +13987,8 @@
               "configPaths",
               "revision",
               "createdAt",
-              "updatedAt"
+              "updatedAt",
+              "updateInstructions"
             ],
             "additionalProperties": false
           },
@@ -14017,10 +14070,11 @@
                         "version",
                         "service",
                         "dataPaths",
-                        "configPaths"
+                        "configPaths",
+                        "updateInstructions"
                       ]
                     },
-                    "maxItems": 5,
+                    "maxItems": 6,
                     "uniqueItems": true
                   },
                   "actorKind": {
@@ -14396,6 +14450,18 @@
                 "maxItems": 16,
                 "uniqueItems": true,
                 "description": "Literal absolute POSIX paths; each <=1024 UTF8 bytes; no CR/LF/NUL; owner validates Unicode."
+              },
+              "updateInstructions": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 8192
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Literal multiline instructions for external AI; <=8192 UTF8 bytes; owner validates Unicode/NUL; whitespace-only becomes null. Never executed."
               }
             },
             "required": [
@@ -14403,7 +14469,8 @@
               "version",
               "service",
               "dataPaths",
-              "configPaths"
+              "configPaths",
+              "updateInstructions"
             ],
             "additionalProperties": false
           },
@@ -14512,6 +14579,18 @@
                 "type": "integer",
                 "minimum": -9007199254740991,
                 "maximum": 9007199254740991
+              },
+              "updateInstructions": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 8192
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Literal multiline instructions for external AI; <=8192 UTF8 bytes; owner validates Unicode/NUL; whitespace-only becomes null. Never executed."
               }
             },
             "required": [
@@ -14526,7 +14605,8 @@
               "configPaths",
               "revision",
               "createdAt",
-              "updatedAt"
+              "updatedAt",
+              "updateInstructions"
             ],
             "additionalProperties": false
           },
@@ -14608,10 +14688,11 @@
                         "version",
                         "service",
                         "dataPaths",
-                        "configPaths"
+                        "configPaths",
+                        "updateInstructions"
                       ]
                     },
-                    "maxItems": 5,
+                    "maxItems": 6,
                     "uniqueItems": true
                   },
                   "actorKind": {
@@ -14929,6 +15010,18 @@
                 "maxItems": 16,
                 "uniqueItems": true,
                 "description": "Literal absolute POSIX paths; each <=1024 UTF8 bytes; no CR/LF/NUL; owner validates Unicode."
+              },
+              "updateInstructions": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 8192
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Literal multiline instructions for external AI; <=8192 UTF8 bytes; owner validates Unicode/NUL; whitespace-only becomes null. Never executed."
               }
             },
             "required": [
@@ -14936,7 +15029,8 @@
               "version",
               "service",
               "dataPaths",
-              "configPaths"
+              "configPaths",
+              "updateInstructions"
             ],
             "additionalProperties": false
           },
@@ -15045,6 +15139,18 @@
                 "type": "integer",
                 "minimum": -9007199254740991,
                 "maximum": 9007199254740991
+              },
+              "updateInstructions": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 8192
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Literal multiline instructions for external AI; <=8192 UTF8 bytes; owner validates Unicode/NUL; whitespace-only becomes null. Never executed."
               }
             },
             "required": [
@@ -15059,7 +15165,8 @@
               "configPaths",
               "revision",
               "createdAt",
-              "updatedAt"
+              "updatedAt",
+              "updateInstructions"
             ],
             "additionalProperties": false
           },
@@ -15141,10 +15248,11 @@
                         "version",
                         "service",
                         "dataPaths",
-                        "configPaths"
+                        "configPaths",
+                        "updateInstructions"
                       ]
                     },
-                    "maxItems": 5,
+                    "maxItems": 6,
                     "uniqueItems": true
                   },
                   "actorKind": {
@@ -15495,6 +15603,18 @@
                 "maxItems": 16,
                 "uniqueItems": true,
                 "description": "Literal absolute POSIX paths; each <=1024 UTF8 bytes; no CR/LF/NUL; owner validates Unicode."
+              },
+              "updateInstructions": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 8192
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Literal multiline instructions for external AI; <=8192 UTF8 bytes; owner validates Unicode/NUL; whitespace-only becomes null. Never executed."
               }
             },
             "required": [
@@ -15502,7 +15622,8 @@
               "version",
               "service",
               "dataPaths",
-              "configPaths"
+              "configPaths",
+              "updateInstructions"
             ],
             "additionalProperties": false
           },
@@ -15611,6 +15732,18 @@
                 "type": "integer",
                 "minimum": -9007199254740991,
                 "maximum": 9007199254740991
+              },
+              "updateInstructions": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 8192
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Literal multiline instructions for external AI; <=8192 UTF8 bytes; owner validates Unicode/NUL; whitespace-only becomes null. Never executed."
               }
             },
             "required": [
@@ -15625,7 +15758,8 @@
               "configPaths",
               "revision",
               "createdAt",
-              "updatedAt"
+              "updatedAt",
+              "updateInstructions"
             ],
             "additionalProperties": false
           },
@@ -15707,10 +15841,11 @@
                         "version",
                         "service",
                         "dataPaths",
-                        "configPaths"
+                        "configPaths",
+                        "updateInstructions"
                       ]
                     },
-                    "maxItems": 5,
+                    "maxItems": 6,
                     "uniqueItems": true
                   },
                   "actorKind": {
@@ -16069,6 +16204,18 @@
                 "maxItems": 16,
                 "uniqueItems": true,
                 "description": "Literal absolute POSIX paths; each <=1024 UTF8 bytes; no CR/LF/NUL; owner validates Unicode."
+              },
+              "updateInstructions": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 8192
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Literal multiline instructions for external AI; <=8192 UTF8 bytes; owner validates Unicode/NUL; whitespace-only becomes null. Never executed."
               }
             },
             "required": [
@@ -16076,7 +16223,8 @@
               "version",
               "service",
               "dataPaths",
-              "configPaths"
+              "configPaths",
+              "updateInstructions"
             ],
             "additionalProperties": false
           },
@@ -16185,6 +16333,18 @@
                 "type": "integer",
                 "minimum": -9007199254740991,
                 "maximum": 9007199254740991
+              },
+              "updateInstructions": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 8192
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Literal multiline instructions for external AI; <=8192 UTF8 bytes; owner validates Unicode/NUL; whitespace-only becomes null. Never executed."
               }
             },
             "required": [
@@ -16199,7 +16359,8 @@
               "configPaths",
               "revision",
               "createdAt",
-              "updatedAt"
+              "updatedAt",
+              "updateInstructions"
             ],
             "additionalProperties": false
           },
@@ -16281,10 +16442,11 @@
                         "version",
                         "service",
                         "dataPaths",
-                        "configPaths"
+                        "configPaths",
+                        "updateInstructions"
                       ]
                     },
-                    "maxItems": 5,
+                    "maxItems": 6,
                     "uniqueItems": true
                   },
                   "actorKind": {
@@ -16635,6 +16797,18 @@
                 "maxItems": 16,
                 "uniqueItems": true,
                 "description": "Literal absolute POSIX paths; each <=1024 UTF8 bytes; no CR/LF/NUL; owner validates Unicode."
+              },
+              "updateInstructions": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 8192
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Literal multiline instructions for external AI; <=8192 UTF8 bytes; owner validates Unicode/NUL; whitespace-only becomes null. Never executed."
               }
             },
             "required": [
@@ -16642,7 +16816,8 @@
               "version",
               "service",
               "dataPaths",
-              "configPaths"
+              "configPaths",
+              "updateInstructions"
             ],
             "additionalProperties": false
           },
@@ -16751,6 +16926,18 @@
                 "type": "integer",
                 "minimum": -9007199254740991,
                 "maximum": 9007199254740991
+              },
+              "updateInstructions": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 8192
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Literal multiline instructions for external AI; <=8192 UTF8 bytes; owner validates Unicode/NUL; whitespace-only becomes null. Never executed."
               }
             },
             "required": [
@@ -16765,7 +16952,8 @@
               "configPaths",
               "revision",
               "createdAt",
-              "updatedAt"
+              "updatedAt",
+              "updateInstructions"
             ],
             "additionalProperties": false
           },
@@ -16847,10 +17035,11 @@
                         "version",
                         "service",
                         "dataPaths",
-                        "configPaths"
+                        "configPaths",
+                        "updateInstructions"
                       ]
                     },
-                    "maxItems": 5,
+                    "maxItems": 6,
                     "uniqueItems": true
                   },
                   "actorKind": {
@@ -17180,6 +17369,18 @@
                 "maxItems": 16,
                 "uniqueItems": true,
                 "description": "Literal absolute POSIX paths; each <=1024 UTF8 bytes; no CR/LF/NUL; owner validates Unicode."
+              },
+              "updateInstructions": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 8192
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Literal multiline instructions for external AI; <=8192 UTF8 bytes; owner validates Unicode/NUL; whitespace-only becomes null. Never executed."
               }
             },
             "required": [
@@ -17187,7 +17388,8 @@
               "version",
               "service",
               "dataPaths",
-              "configPaths"
+              "configPaths",
+              "updateInstructions"
             ],
             "additionalProperties": false
           },
@@ -17296,6 +17498,18 @@
                 "type": "integer",
                 "minimum": -9007199254740991,
                 "maximum": 9007199254740991
+              },
+              "updateInstructions": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 8192
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Literal multiline instructions for external AI; <=8192 UTF8 bytes; owner validates Unicode/NUL; whitespace-only becomes null. Never executed."
               }
             },
             "required": [
@@ -17310,7 +17524,8 @@
               "configPaths",
               "revision",
               "createdAt",
-              "updatedAt"
+              "updatedAt",
+              "updateInstructions"
             ],
             "additionalProperties": false
           },
@@ -17392,10 +17607,11 @@
                         "version",
                         "service",
                         "dataPaths",
-                        "configPaths"
+                        "configPaths",
+                        "updateInstructions"
                       ]
                     },
-                    "maxItems": 5,
+                    "maxItems": 6,
                     "uniqueItems": true
                   },
                   "actorKind": {
@@ -17746,6 +17962,18 @@
                 "maxItems": 16,
                 "uniqueItems": true,
                 "description": "Literal absolute POSIX paths; each <=1024 UTF8 bytes; no CR/LF/NUL; owner validates Unicode."
+              },
+              "updateInstructions": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 8192
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Literal multiline instructions for external AI; <=8192 UTF8 bytes; owner validates Unicode/NUL; whitespace-only becomes null. Never executed."
               }
             },
             "required": [
@@ -17753,7 +17981,8 @@
               "version",
               "service",
               "dataPaths",
-              "configPaths"
+              "configPaths",
+              "updateInstructions"
             ],
             "additionalProperties": false
           },
@@ -17862,6 +18091,18 @@
                 "type": "integer",
                 "minimum": -9007199254740991,
                 "maximum": 9007199254740991
+              },
+              "updateInstructions": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 8192
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Literal multiline instructions for external AI; <=8192 UTF8 bytes; owner validates Unicode/NUL; whitespace-only becomes null. Never executed."
               }
             },
             "required": [
@@ -17876,7 +18117,8 @@
               "configPaths",
               "revision",
               "createdAt",
-              "updatedAt"
+              "updatedAt",
+              "updateInstructions"
             ],
             "additionalProperties": false
           },
@@ -17958,10 +18200,11 @@
                         "version",
                         "service",
                         "dataPaths",
-                        "configPaths"
+                        "configPaths",
+                        "updateInstructions"
                       ]
                     },
-                    "maxItems": 5,
+                    "maxItems": 6,
                     "uniqueItems": true
                   },
                   "actorKind": {
@@ -18292,6 +18535,18 @@
                 "maxItems": 16,
                 "uniqueItems": true,
                 "description": "Literal absolute POSIX paths; each <=1024 UTF8 bytes; no CR/LF/NUL; owner validates Unicode."
+              },
+              "updateInstructions": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 8192
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Literal multiline instructions for external AI; <=8192 UTF8 bytes; owner validates Unicode/NUL; whitespace-only becomes null. Never executed."
               }
             },
             "required": [
@@ -18299,7 +18554,8 @@
               "version",
               "service",
               "dataPaths",
-              "configPaths"
+              "configPaths",
+              "updateInstructions"
             ],
             "additionalProperties": false
           },
@@ -18408,6 +18664,18 @@
                 "type": "integer",
                 "minimum": -9007199254740991,
                 "maximum": 9007199254740991
+              },
+              "updateInstructions": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 8192
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Literal multiline instructions for external AI; <=8192 UTF8 bytes; owner validates Unicode/NUL; whitespace-only becomes null. Never executed."
               }
             },
             "required": [
@@ -18422,7 +18690,8 @@
               "configPaths",
               "revision",
               "createdAt",
-              "updatedAt"
+              "updatedAt",
+              "updateInstructions"
             ],
             "additionalProperties": false
           },
@@ -18504,10 +18773,11 @@
                         "version",
                         "service",
                         "dataPaths",
-                        "configPaths"
+                        "configPaths",
+                        "updateInstructions"
                       ]
                     },
-                    "maxItems": 5,
+                    "maxItems": 6,
                     "uniqueItems": true
                   },
                   "actorKind": {
@@ -18883,6 +19153,18 @@
                 "maxItems": 16,
                 "uniqueItems": true,
                 "description": "Literal absolute POSIX paths; each <=1024 UTF8 bytes; no CR/LF/NUL; owner validates Unicode."
+              },
+              "updateInstructions": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 8192
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Literal multiline instructions for external AI; <=8192 UTF8 bytes; owner validates Unicode/NUL; whitespace-only becomes null. Never executed."
               }
             },
             "required": [
@@ -18890,7 +19172,8 @@
               "version",
               "service",
               "dataPaths",
-              "configPaths"
+              "configPaths",
+              "updateInstructions"
             ],
             "additionalProperties": false
           },
@@ -18999,6 +19282,18 @@
                 "type": "integer",
                 "minimum": -9007199254740991,
                 "maximum": 9007199254740991
+              },
+              "updateInstructions": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 8192
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Literal multiline instructions for external AI; <=8192 UTF8 bytes; owner validates Unicode/NUL; whitespace-only becomes null. Never executed."
               }
             },
             "required": [
@@ -19013,7 +19308,8 @@
               "configPaths",
               "revision",
               "createdAt",
-              "updatedAt"
+              "updatedAt",
+              "updateInstructions"
             ],
             "additionalProperties": false
           },
@@ -19095,10 +19391,11 @@
                         "version",
                         "service",
                         "dataPaths",
-                        "configPaths"
+                        "configPaths",
+                        "updateInstructions"
                       ]
                     },
-                    "maxItems": 5,
+                    "maxItems": 6,
                     "uniqueItems": true
                   },
                   "actorKind": {
@@ -19451,6 +19748,18 @@
                 "maxItems": 16,
                 "uniqueItems": true,
                 "description": "Literal absolute POSIX paths; each <=1024 UTF8 bytes; no CR/LF/NUL; owner validates Unicode."
+              },
+              "updateInstructions": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 8192
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Literal multiline instructions for external AI; <=8192 UTF8 bytes; owner validates Unicode/NUL; whitespace-only becomes null. Never executed."
               }
             },
             "required": [
@@ -19458,7 +19767,8 @@
               "version",
               "service",
               "dataPaths",
-              "configPaths"
+              "configPaths",
+              "updateInstructions"
             ],
             "additionalProperties": false
           },
@@ -19567,6 +19877,18 @@
                 "type": "integer",
                 "minimum": -9007199254740991,
                 "maximum": 9007199254740991
+              },
+              "updateInstructions": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 8192
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Literal multiline instructions for external AI; <=8192 UTF8 bytes; owner validates Unicode/NUL; whitespace-only becomes null. Never executed."
               }
             },
             "required": [
@@ -19581,7 +19903,8 @@
               "configPaths",
               "revision",
               "createdAt",
-              "updatedAt"
+              "updatedAt",
+              "updateInstructions"
             ],
             "additionalProperties": false
           },
@@ -19663,10 +19986,11 @@
                         "version",
                         "service",
                         "dataPaths",
-                        "configPaths"
+                        "configPaths",
+                        "updateInstructions"
                       ]
                     },
-                    "maxItems": 5,
+                    "maxItems": 6,
                     "uniqueItems": true
                   },
                   "actorKind": {
@@ -19914,6 +20238,1252 @@
               },
               "value": {
                 "$ref": "#/$defs/MutationValue"
+              },
+              "meta": {
+                "$ref": "#/$defs/ProjectionMeta"
+              }
+            },
+            "required": [
+              "ok",
+              "value",
+              "meta"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "ok": {
+                "const": false
+              },
+              "error": {
+                "$ref": "#/$defs/Error"
+              }
+            },
+            "required": [
+              "ok",
+              "error"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      }
+    },
+    {
+      "name": "software.updates.check",
+      "description": "Prepare a read-only task and fresh local context for an external AI to check one software card or host OS updates. Does NOT check releases, call AI, connect SSH, run commands or install anything. Poll from your externally configured Codex schedule (e.g. every 5 or 60 minutes); external AI executes the check and reports results.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$defs": {
+          "Uuid": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          },
+          "Revision": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "MutationId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[\\x21-\\x7e]+$"
+          },
+          "CardInput": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Trim then 1..100 Unicode scalars."
+              },
+              "version": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "description": "Trim then <=256 Unicode scalars."
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "service": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "description": "Trim then <=256 Unicode scalars."
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "dataPaths": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^/",
+                  "maxLength": 1024
+                },
+                "maxItems": 16,
+                "uniqueItems": true,
+                "description": "Literal absolute POSIX paths; each <=1024 UTF8 bytes; no CR/LF/NUL; owner validates Unicode."
+              },
+              "configPaths": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^/",
+                  "maxLength": 1024
+                },
+                "maxItems": 16,
+                "uniqueItems": true,
+                "description": "Literal absolute POSIX paths; each <=1024 UTF8 bytes; no CR/LF/NUL; owner validates Unicode."
+              },
+              "updateInstructions": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 8192
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Literal multiline instructions for external AI; <=8192 UTF8 bytes; owner validates Unicode/NUL; whitespace-only becomes null. Never executed."
+              }
+            },
+            "required": [
+              "name",
+              "version",
+              "service",
+              "dataPaths",
+              "configPaths",
+              "updateInstructions"
+            ],
+            "additionalProperties": false
+          },
+          "CardView": {
+            "type": "object",
+            "properties": {
+              "softwareId": {
+                "$ref": "#/$defs/Uuid"
+              },
+              "profileId": {
+                "$ref": "#/$defs/Uuid"
+              },
+              "target": {
+                "type": "object",
+                "properties": {
+                  "endpointId": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                  },
+                  "host": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 253
+                  },
+                  "port": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 65535
+                  },
+                  "username": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 255
+                  }
+                },
+                "required": [
+                  "endpointId",
+                  "host",
+                  "port",
+                  "username"
+                ],
+                "additionalProperties": false
+              },
+              "currentTarget": {
+                "type": "boolean"
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Trim then 1..100 Unicode scalars.",
+                "maxLength": 100
+              },
+              "version": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 256
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "service": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 256
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "dataPaths": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^/",
+                  "maxLength": 1024
+                },
+                "maxItems": 16,
+                "uniqueItems": true,
+                "description": "Literal absolute POSIX paths; each <=1024 UTF8 bytes; no CR/LF/NUL; owner validates Unicode."
+              },
+              "configPaths": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^/",
+                  "maxLength": 1024
+                },
+                "maxItems": 16,
+                "uniqueItems": true,
+                "description": "Literal absolute POSIX paths; each <=1024 UTF8 bytes; no CR/LF/NUL; owner validates Unicode."
+              },
+              "revision": {
+                "$ref": "#/$defs/Revision"
+              },
+              "createdAt": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "updatedAt": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "updateInstructions": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 8192
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Literal multiline instructions for external AI; <=8192 UTF8 bytes; owner validates Unicode/NUL; whitespace-only becomes null. Never executed."
+              }
+            },
+            "required": [
+              "softwareId",
+              "profileId",
+              "target",
+              "currentTarget",
+              "name",
+              "version",
+              "service",
+              "dataPaths",
+              "configPaths",
+              "revision",
+              "createdAt",
+              "updatedAt",
+              "updateInstructions"
+            ],
+            "additionalProperties": false
+          },
+          "EventView": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "eventId": {
+                    "$ref": "#/$defs/Uuid"
+                  },
+                  "profileId": {
+                    "$ref": "#/$defs/Uuid"
+                  },
+                  "endpointId": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                  },
+                  "host": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 253
+                  },
+                  "port": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 65535
+                  },
+                  "username": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 255
+                  },
+                  "softwareId": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/Uuid"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "softwareName": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 100
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "kind": {
+                    "enum": [
+                      "created",
+                      "updated",
+                      "deleted"
+                    ]
+                  },
+                  "action": {
+                    "type": "null"
+                  },
+                  "summary": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2048
+                  },
+                  "outcome": {
+                    "type": "null"
+                  },
+                  "changedFields": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "name",
+                        "version",
+                        "service",
+                        "dataPaths",
+                        "configPaths",
+                        "updateInstructions"
+                      ]
+                    },
+                    "maxItems": 6,
+                    "uniqueItems": true
+                  },
+                  "actorKind": {
+                    "type": "string",
+                    "enum": [
+                      "ui",
+                      "mcp"
+                    ]
+                  },
+                  "clientId": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/Uuid"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "createdAt": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "eventId",
+                  "profileId",
+                  "endpointId",
+                  "host",
+                  "port",
+                  "username",
+                  "softwareId",
+                  "softwareName",
+                  "kind",
+                  "action",
+                  "summary",
+                  "outcome",
+                  "changedFields",
+                  "actorKind",
+                  "clientId",
+                  "createdAt"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "eventId": {
+                    "$ref": "#/$defs/Uuid"
+                  },
+                  "profileId": {
+                    "$ref": "#/$defs/Uuid"
+                  },
+                  "endpointId": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                  },
+                  "host": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 253
+                  },
+                  "port": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 65535
+                  },
+                  "username": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 255
+                  },
+                  "softwareId": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/Uuid"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "softwareName": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 100
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "kind": {
+                    "const": "note"
+                  },
+                  "action": {
+                    "type": "string",
+                    "enum": [
+                      "install",
+                      "update",
+                      "remove",
+                      "configure",
+                      "analyze",
+                      "status",
+                      "other"
+                    ]
+                  },
+                  "summary": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2048
+                  },
+                  "outcome": {
+                    "type": "string",
+                    "enum": [
+                      "success",
+                      "failed",
+                      "unknown"
+                    ]
+                  },
+                  "changedFields": {
+                    "type": "array",
+                    "maxItems": 0
+                  },
+                  "actorKind": {
+                    "type": "string",
+                    "enum": [
+                      "ui",
+                      "mcp"
+                    ]
+                  },
+                  "clientId": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/Uuid"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "createdAt": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "eventId",
+                  "profileId",
+                  "endpointId",
+                  "host",
+                  "port",
+                  "username",
+                  "softwareId",
+                  "softwareName",
+                  "kind",
+                  "action",
+                  "summary",
+                  "outcome",
+                  "changedFields",
+                  "actorKind",
+                  "clientId",
+                  "createdAt"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "MutationValue": {
+            "type": "object",
+            "properties": {
+              "entityId": {
+                "type": "string"
+              },
+              "revision": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "replayed": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "entityId",
+              "revision",
+              "replayed"
+            ],
+            "additionalProperties": false
+          },
+          "ProjectionMeta": {
+            "type": "object",
+            "properties": {
+              "dataRevision": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "ownerEpoch": {
+                "$ref": "#/$defs/Uuid"
+              }
+            },
+            "required": [
+              "dataRevision",
+              "ownerEpoch"
+            ],
+            "additionalProperties": false
+          },
+          "Error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "field": {
+                "type": "string",
+                "maxLength": 128
+              },
+              "retryable": {
+                "type": "boolean"
+              },
+              "messageKey": {
+                "type": "string",
+                "maxLength": 256
+              }
+            },
+            "required": [
+              "code",
+              "retryable",
+              "messageKey"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "profileId": {
+                "$ref": "#/$defs/Uuid"
+              },
+              "kind": {
+                "const": "software"
+              },
+              "softwareId": {
+                "$ref": "#/$defs/Uuid"
+              }
+            },
+            "required": [
+              "profileId",
+              "kind",
+              "softwareId"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "profileId": {
+                "$ref": "#/$defs/Uuid"
+              },
+              "kind": {
+                "const": "os"
+              }
+            },
+            "required": [
+              "profileId",
+              "kind"
+            ],
+            "additionalProperties": false
+          }
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$defs": {
+          "Uuid": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          },
+          "Revision": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "MutationId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[\\x21-\\x7e]+$"
+          },
+          "CardInput": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Trim then 1..100 Unicode scalars."
+              },
+              "version": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "description": "Trim then <=256 Unicode scalars."
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "service": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "description": "Trim then <=256 Unicode scalars."
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "dataPaths": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^/",
+                  "maxLength": 1024
+                },
+                "maxItems": 16,
+                "uniqueItems": true,
+                "description": "Literal absolute POSIX paths; each <=1024 UTF8 bytes; no CR/LF/NUL; owner validates Unicode."
+              },
+              "configPaths": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^/",
+                  "maxLength": 1024
+                },
+                "maxItems": 16,
+                "uniqueItems": true,
+                "description": "Literal absolute POSIX paths; each <=1024 UTF8 bytes; no CR/LF/NUL; owner validates Unicode."
+              },
+              "updateInstructions": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 8192
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Literal multiline instructions for external AI; <=8192 UTF8 bytes; owner validates Unicode/NUL; whitespace-only becomes null. Never executed."
+              }
+            },
+            "required": [
+              "name",
+              "version",
+              "service",
+              "dataPaths",
+              "configPaths",
+              "updateInstructions"
+            ],
+            "additionalProperties": false
+          },
+          "CardView": {
+            "type": "object",
+            "properties": {
+              "softwareId": {
+                "$ref": "#/$defs/Uuid"
+              },
+              "profileId": {
+                "$ref": "#/$defs/Uuid"
+              },
+              "target": {
+                "type": "object",
+                "properties": {
+                  "endpointId": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                  },
+                  "host": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 253
+                  },
+                  "port": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 65535
+                  },
+                  "username": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 255
+                  }
+                },
+                "required": [
+                  "endpointId",
+                  "host",
+                  "port",
+                  "username"
+                ],
+                "additionalProperties": false
+              },
+              "currentTarget": {
+                "type": "boolean"
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Trim then 1..100 Unicode scalars.",
+                "maxLength": 100
+              },
+              "version": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 256
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "service": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 256
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "dataPaths": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^/",
+                  "maxLength": 1024
+                },
+                "maxItems": 16,
+                "uniqueItems": true,
+                "description": "Literal absolute POSIX paths; each <=1024 UTF8 bytes; no CR/LF/NUL; owner validates Unicode."
+              },
+              "configPaths": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^/",
+                  "maxLength": 1024
+                },
+                "maxItems": 16,
+                "uniqueItems": true,
+                "description": "Literal absolute POSIX paths; each <=1024 UTF8 bytes; no CR/LF/NUL; owner validates Unicode."
+              },
+              "revision": {
+                "$ref": "#/$defs/Revision"
+              },
+              "createdAt": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "updatedAt": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "updateInstructions": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 8192
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Literal multiline instructions for external AI; <=8192 UTF8 bytes; owner validates Unicode/NUL; whitespace-only becomes null. Never executed."
+              }
+            },
+            "required": [
+              "softwareId",
+              "profileId",
+              "target",
+              "currentTarget",
+              "name",
+              "version",
+              "service",
+              "dataPaths",
+              "configPaths",
+              "revision",
+              "createdAt",
+              "updatedAt",
+              "updateInstructions"
+            ],
+            "additionalProperties": false
+          },
+          "EventView": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "eventId": {
+                    "$ref": "#/$defs/Uuid"
+                  },
+                  "profileId": {
+                    "$ref": "#/$defs/Uuid"
+                  },
+                  "endpointId": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                  },
+                  "host": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 253
+                  },
+                  "port": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 65535
+                  },
+                  "username": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 255
+                  },
+                  "softwareId": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/Uuid"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "softwareName": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 100
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "kind": {
+                    "enum": [
+                      "created",
+                      "updated",
+                      "deleted"
+                    ]
+                  },
+                  "action": {
+                    "type": "null"
+                  },
+                  "summary": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2048
+                  },
+                  "outcome": {
+                    "type": "null"
+                  },
+                  "changedFields": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "name",
+                        "version",
+                        "service",
+                        "dataPaths",
+                        "configPaths",
+                        "updateInstructions"
+                      ]
+                    },
+                    "maxItems": 6,
+                    "uniqueItems": true
+                  },
+                  "actorKind": {
+                    "type": "string",
+                    "enum": [
+                      "ui",
+                      "mcp"
+                    ]
+                  },
+                  "clientId": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/Uuid"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "createdAt": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "eventId",
+                  "profileId",
+                  "endpointId",
+                  "host",
+                  "port",
+                  "username",
+                  "softwareId",
+                  "softwareName",
+                  "kind",
+                  "action",
+                  "summary",
+                  "outcome",
+                  "changedFields",
+                  "actorKind",
+                  "clientId",
+                  "createdAt"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "eventId": {
+                    "$ref": "#/$defs/Uuid"
+                  },
+                  "profileId": {
+                    "$ref": "#/$defs/Uuid"
+                  },
+                  "endpointId": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                  },
+                  "host": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 253
+                  },
+                  "port": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 65535
+                  },
+                  "username": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 255
+                  },
+                  "softwareId": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/Uuid"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "softwareName": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 100
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "kind": {
+                    "const": "note"
+                  },
+                  "action": {
+                    "type": "string",
+                    "enum": [
+                      "install",
+                      "update",
+                      "remove",
+                      "configure",
+                      "analyze",
+                      "status",
+                      "other"
+                    ]
+                  },
+                  "summary": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2048
+                  },
+                  "outcome": {
+                    "type": "string",
+                    "enum": [
+                      "success",
+                      "failed",
+                      "unknown"
+                    ]
+                  },
+                  "changedFields": {
+                    "type": "array",
+                    "maxItems": 0
+                  },
+                  "actorKind": {
+                    "type": "string",
+                    "enum": [
+                      "ui",
+                      "mcp"
+                    ]
+                  },
+                  "clientId": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/Uuid"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "createdAt": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "eventId",
+                  "profileId",
+                  "endpointId",
+                  "host",
+                  "port",
+                  "username",
+                  "softwareId",
+                  "softwareName",
+                  "kind",
+                  "action",
+                  "summary",
+                  "outcome",
+                  "changedFields",
+                  "actorKind",
+                  "clientId",
+                  "createdAt"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "MutationValue": {
+            "type": "object",
+            "properties": {
+              "entityId": {
+                "type": "string"
+              },
+              "revision": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "replayed": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "entityId",
+              "revision",
+              "replayed"
+            ],
+            "additionalProperties": false
+          },
+          "ProjectionMeta": {
+            "type": "object",
+            "properties": {
+              "dataRevision": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "ownerEpoch": {
+                "$ref": "#/$defs/Uuid"
+              }
+            },
+            "required": [
+              "dataRevision",
+              "ownerEpoch"
+            ],
+            "additionalProperties": false
+          },
+          "Error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "field": {
+                "type": "string",
+                "maxLength": 128
+              },
+              "retryable": {
+                "type": "boolean"
+              },
+              "messageKey": {
+                "type": "string",
+                "maxLength": 256
+              }
+            },
+            "required": [
+              "code",
+              "retryable",
+              "messageKey"
+            ],
+            "additionalProperties": false
+          },
+          "UpdateCheck": {
+            "type": "object",
+            "properties": {
+              "profileId": {
+                "$ref": "#/$defs/Uuid"
+              },
+              "connectionRevision": {
+                "$ref": "#/$defs/Revision"
+              },
+              "target": {
+                "type": "object",
+                "properties": {
+                  "endpointId": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                  },
+                  "host": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 253
+                  },
+                  "port": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 65535
+                  },
+                  "username": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 255
+                  }
+                },
+                "required": [
+                  "endpointId",
+                  "host",
+                  "port",
+                  "username"
+                ],
+                "additionalProperties": false
+              },
+              "card": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/CardView"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "prompt": {
+                "type": "string",
+                "maxLength": 65536
+              }
+            },
+            "required": [
+              "profileId",
+              "connectionRevision",
+              "target",
+              "card",
+              "prompt"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "type": "object",
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "ok": {
+                "const": true
+              },
+              "value": {
+                "$ref": "#/$defs/UpdateCheck"
               },
               "meta": {
                 "$ref": "#/$defs/ProjectionMeta"

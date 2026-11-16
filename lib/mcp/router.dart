@@ -390,6 +390,13 @@ final class McpSession {
             limit: a['limit'] as int? ?? 25,
             cursor: a['cursor'] as String?,
           )).toJson();
+        case 'software.updates.check':
+          return (await owner.prepareUpdateCheck(
+            actor,
+            profile!,
+            kind: a['kind'] as String,
+            softwareId: a['softwareId'] as String?,
+          )).toJson();
         case 'software.get':
           return (await owner.get(actor, a['softwareId'] as String)).toJson();
         case 'software.save':
@@ -403,6 +410,7 @@ final class McpSession {
               service: card['service'] as String?,
               dataPaths: (card['dataPaths'] as List).cast<String>(),
               configPaths: (card['configPaths'] as List).cast<String>(),
+              updateInstructions: card['updateInstructions'] as String?,
             ),
             softwareId: a['softwareId'] as String?,
             expectedRevision: a['expectedRevision'] as int?,

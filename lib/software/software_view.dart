@@ -11,6 +11,7 @@ import '../journals/journal_models.dart';
 import 'software_models.dart';
 import 'software_owner.dart';
 import 'software_analysis.dart';
+import 'update_prompt.dart';
 
 /// C02/C03/C04/C05/C06/C07/C08/C09/C10/C11/C12/C13/C16/C18/C19/C20/C28.
 /// Shell navigation delegates to the existing C26 owner; no commands are generated.
@@ -47,6 +48,7 @@ class _SoftwareViewState extends State<SoftwareView> {
       'service',
       'dataPaths',
       'configPaths',
+      'updateInstructions',
     ])
       key: TextEditingController(),
   };
@@ -87,7 +89,8 @@ class _SoftwareViewState extends State<SoftwareView> {
     super.didUpdateWidget(old);
     if (old.owner != widget.owner ||
         old.profile.profileId != widget.profile.profileId ||
-        old.profile.endpointId != widget.profile.endpointId) {
+        old.profile.endpointId != widget.profile.endpointId ||
+        old.profile.connectionRevision != widget.profile.connectionRevision) {
       old.owner.removeListener(_changed);
       widget.owner.addListener(_changed);
       _epoch++;
@@ -192,6 +195,7 @@ class _SoftwareViewState extends State<SoftwareView> {
       _fields['service']!.text = input?.service ?? '';
       _fields['dataPaths']!.text = input?.dataPaths.join('\n') ?? '';
       _fields['configPaths']!.text = input?.configPaths.join('\n') ?? '';
+      _fields['updateInstructions']!.text = input?.updateInstructions ?? '';
     });
   }
 
@@ -208,7 +212,59 @@ class _SoftwareViewState extends State<SoftwareView> {
       service: optional('service'),
       dataPaths: paths('dataPaths'),
       configPaths: paths('configPaths'),
+      updateInstructions: optional('updateInstructions'),
     );
+  }
+
+  Future<void> _copyUpdateCheck(SoftwareCardView? card) async {
+    final epoch = _epoch, owner = widget.owner, profile = widget.profile;
+    final selected = _selectedSoftwareId;
+    setState(() {
+      _pending = true;
+      _actionError = null;
+    });
+    try {
+      final result = await owner.prepareUpdateCheck(
+        widget.actor,
+        profile.profileId,
+        kind: card == null ? 'os' : 'software',
+        softwareId: card?.softwareId,
+      );
+      if (!_current(epoch) ||
+          owner != widget.owner ||
+          profile.connectionRevision != widget.profile.connectionRevision ||
+          (card != null && selected != _selectedSoftwareId))
+        return;
+      if (!result.ok) throw result.error!;
+      final check = result.value!.software as SoftwareUpdateCheck;
+      if (check.connectionRevision != profile.connectionRevision ||
+          check.endpointId != profile.endpointId ||
+          (card != null &&
+              (check.card?.revision != card.revision ||
+                  !_cards!.items.whereType<SoftwareCardView>().any(
+                    (c) =>
+                        c.softwareId == card.softwareId &&
+                        c.revision == card.revision,
+                  )))) {
+        throw const OperationFailure(FailureCode.conflict);
+      }
+      if (widget.copyText case final copy?) {
+        await copy(check.prompt);
+      } else {
+        await Clipboard.setData(ClipboardData(text: check.prompt));
+      }
+    } on OperationFailure catch (error) {
+      if (_current(epoch)) setState(() => _actionError = error);
+    } catch (_) {
+      if (_current(epoch))
+        setState(
+          () => _actionError = const OperationFailure(
+            FailureCode.storageUnavailable,
+          ),
+        );
+    } finally {
+      if (_current(epoch)) setState(() => _pending = false);
+    }
   }
 
   Future<void> _save() async {
@@ -469,6 +525,11 @@ class _SoftwareViewState extends State<SoftwareView> {
               : card.card.configPaths.join('\n'),
           selectable: true,
         ),
+        DeckKeyValue(
+          label: 'Инструкция проверки обновлений для ИИ',
+          value: card.card.updateInstructions ?? 'Инструкция не указана',
+          selectable: true,
+        ),
         _timestamp(card.updatedAt),
         DeckActions(
           children: [
@@ -488,6 +549,19 @@ class _SoftwareViewState extends State<SoftwareView> {
             DeckButton(
               onPressed: _pending ? null : () => _historyFor(card),
               child: const Text('История карточки'),
+            ),
+            DeckButton(
+              onPressed:
+                  _pending ||
+                      _loading ||
+                      _loadError != null ||
+                      !card.currentTarget
+                  ? null
+                  : () => _copyUpdateCheck(card),
+              disabledReason: !card.currentTarget
+                  ? 'Карточка относится к другому хосту'
+                  : null,
+              child: const Text('Скопировать задание проверки обновления'),
             ),
             DeckButton(
               key: ValueKey('software-console-${card.softwareId}'),
@@ -603,10 +677,14 @@ class _SoftwareViewState extends State<SoftwareView> {
             'service': 'Служба',
             'dataPaths': 'Данные — путь на строку',
             'configPaths': 'Конфиги — путь на строку',
+            'updateInstructions': 'Инструкция проверки обновлений для ИИ',
           }[entry.key]!,
           controller: entry.value,
           enabled: !_pending,
-          maxLines: entry.key.endsWith('Paths') ? 3 : 1,
+          maxLines:
+              entry.key.endsWith('Paths') || entry.key == 'updateInstructions'
+              ? 3
+              : 1,
           onChanged: (_) => _cardMutationId = null,
         ),
       if (_editConflict)
@@ -721,6 +799,12 @@ class _SoftwareViewState extends State<SoftwareView> {
             DeckButton(
               onPressed: _pending ? null : () => _start(null),
               child: const Text('Добавить ПО'),
+            ),
+            DeckButton(
+              onPressed: _pending || _loading || _loadError != null
+                  ? null
+                  : () => _copyUpdateCheck(null),
+              child: const Text('Скопировать задание проверки обновлений ОС'),
             ),
             DeckButton(
               onPressed: () => setState(() {

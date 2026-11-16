@@ -36,6 +36,23 @@ void main() {
   });
   tearDown(() => h.dispose());
 
+  test(
+    'portable instruction survives guarded import and local re-export',
+    () async {
+      final value = data.card(number: 20, owner: 10);
+      (value['card']! as Map)['updateInstructions'] =
+          '  vendor stable\r\nПроверить digest  ';
+      final incoming = PortableSyncCard.parse(value);
+      final remote = await h.remote([profile(10), incoming]);
+      await h.run(remote, choice: SyncMergeChoice.server);
+      final stored = h.feature.repository.state.softwareCards[data.id(20)]!;
+      expect(
+        stored.updateInstructions,
+        '  vendor stable\r\nПроверить digest  ',
+      );
+      expect(cardContent(stored).toJson(), incoming.toJson());
+    },
+  );
   test('whole-set replacement at the same endpoint retains exact local accepted trust', () async {
     final id = await h.feature.create(), session = await h.connected(id);
     final original = h
@@ -76,7 +93,7 @@ void main() {
     },
   );
 
-  test('exact32KiB current card cannot silently overflow when the imported target makes it historical', () async {
+  test('exact32794byte current card cannot silently overflow when the imported target makes it historical', () async {
     final id = await h.feature.create(),
         session = await h.connected(id),
         p = h.feature.repository.state.profiles[id]!;
@@ -106,7 +123,7 @@ void main() {
             jsonEncode(SoftwareCardView(old, currentTarget: true).toJson()),
           )
           .length,
-      32768,
+      32794,
     );
     h.feature.repository.state.softwareCards[old.softwareId] = old;
     final remote = await h.remote([

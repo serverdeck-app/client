@@ -748,6 +748,7 @@ final class SyncApply implements RuntimeCapability {
       ..service = (c['service'] as String?)
       ..dataPaths = List<String>.from(c['dataPaths']! as List)
       ..configPaths = List<String>.from(c['configPaths']! as List)
+      ..updateInstructions = c['updateInstructions'] as String?
       ..createdAt = c['createdAt']! as int
       ..updatedAt = c['updatedAt']! as int
       ..revision = revision;
@@ -756,7 +757,7 @@ final class SyncApply implements RuntimeCapability {
   static PortableSyncCard _portableCard(SoftwareCardRecord c) =>
       PortableSyncCard.parse({
         'kind': 'software',
-        'version': 1,
+        'version': 2,
         'card': {
           'softwareId': c.softwareId,
           'profileId': c.profileId,
@@ -769,6 +770,7 @@ final class SyncApply implements RuntimeCapability {
           'service': c.service,
           'dataPaths': c.dataPaths,
           'configPaths': c.configPaths,
+          'updateInstructions': c.updateInstructions,
           'createdAt': c.createdAt,
           'updatedAt': c.updatedAt,
         },

@@ -16550,17 +16550,22 @@ const SoftwareCardRecordSchema = CollectionSchema(
       name: r'softwareId',
       type: IsarType.string,
     ),
-    r'updatedAt': PropertySchema(
+    r'updateInstructions': PropertySchema(
       id: 11,
+      name: r'updateInstructions',
+      type: IsarType.string,
+    ),
+    r'updatedAt': PropertySchema(
+      id: 12,
       name: r'updatedAt',
       type: IsarType.long,
     ),
     r'username': PropertySchema(
-      id: 12,
+      id: 13,
       name: r'username',
       type: IsarType.string,
     ),
-    r'version': PropertySchema(id: 13, name: r'version', type: IsarType.string),
+    r'version': PropertySchema(id: 14, name: r'version', type: IsarType.string),
   },
 
   estimateSize: _softwareCardRecordEstimateSize,
@@ -16649,6 +16654,12 @@ int _softwareCardRecordEstimateSize(
     }
   }
   bytesCount += 3 + object.softwareId.length * 3;
+  {
+    final value = object.updateInstructions;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
   bytesCount += 3 + object.username.length * 3;
   {
     final value = object.version;
@@ -16676,9 +16687,10 @@ void _softwareCardRecordSerialize(
   writer.writeLong(offsets[8], object.revision);
   writer.writeString(offsets[9], object.service);
   writer.writeString(offsets[10], object.softwareId);
-  writer.writeLong(offsets[11], object.updatedAt);
-  writer.writeString(offsets[12], object.username);
-  writer.writeString(offsets[13], object.version);
+  writer.writeString(offsets[11], object.updateInstructions);
+  writer.writeLong(offsets[12], object.updatedAt);
+  writer.writeString(offsets[13], object.username);
+  writer.writeString(offsets[14], object.version);
 }
 
 SoftwareCardRecord _softwareCardRecordDeserialize(
@@ -16700,9 +16712,10 @@ SoftwareCardRecord _softwareCardRecordDeserialize(
   object.revision = reader.readLong(offsets[8]);
   object.service = reader.readStringOrNull(offsets[9]);
   object.softwareId = reader.readString(offsets[10]);
-  object.updatedAt = reader.readLong(offsets[11]);
-  object.username = reader.readString(offsets[12]);
-  object.version = reader.readStringOrNull(offsets[13]);
+  object.updateInstructions = reader.readStringOrNull(offsets[11]);
+  object.updatedAt = reader.readLong(offsets[12]);
+  object.username = reader.readString(offsets[13]);
+  object.version = reader.readStringOrNull(offsets[14]);
   return object;
 }
 
@@ -16736,10 +16749,12 @@ P _softwareCardRecordDeserializeProp<P>(
     case 10:
       return (reader.readString(offset)) as P;
     case 11:
-      return (reader.readLong(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 12:
-      return (reader.readString(offset)) as P;
+      return (reader.readLong(offset)) as P;
     case 13:
+      return (reader.readString(offset)) as P;
+    case 14:
       return (reader.readStringOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -18592,6 +18607,165 @@ extension SoftwareCardRecordQueryFilter
   }
 
   QueryBuilder<SoftwareCardRecord, SoftwareCardRecord, QAfterFilterCondition>
+  updateInstructionsIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'updateInstructions'),
+      );
+    });
+  }
+
+  QueryBuilder<SoftwareCardRecord, SoftwareCardRecord, QAfterFilterCondition>
+  updateInstructionsIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'updateInstructions'),
+      );
+    });
+  }
+
+  QueryBuilder<SoftwareCardRecord, SoftwareCardRecord, QAfterFilterCondition>
+  updateInstructionsEqualTo(String? value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'updateInstructions',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<SoftwareCardRecord, SoftwareCardRecord, QAfterFilterCondition>
+  updateInstructionsGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'updateInstructions',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<SoftwareCardRecord, SoftwareCardRecord, QAfterFilterCondition>
+  updateInstructionsLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'updateInstructions',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<SoftwareCardRecord, SoftwareCardRecord, QAfterFilterCondition>
+  updateInstructionsBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'updateInstructions',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<SoftwareCardRecord, SoftwareCardRecord, QAfterFilterCondition>
+  updateInstructionsStartsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'updateInstructions',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<SoftwareCardRecord, SoftwareCardRecord, QAfterFilterCondition>
+  updateInstructionsEndsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'updateInstructions',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<SoftwareCardRecord, SoftwareCardRecord, QAfterFilterCondition>
+  updateInstructionsContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'updateInstructions',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<SoftwareCardRecord, SoftwareCardRecord, QAfterFilterCondition>
+  updateInstructionsMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'updateInstructions',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<SoftwareCardRecord, SoftwareCardRecord, QAfterFilterCondition>
+  updateInstructionsIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'updateInstructions', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<SoftwareCardRecord, SoftwareCardRecord, QAfterFilterCondition>
+  updateInstructionsIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'updateInstructions', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<SoftwareCardRecord, SoftwareCardRecord, QAfterFilterCondition>
   updatedAtEqualTo(int value) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
@@ -19082,6 +19256,20 @@ extension SoftwareCardRecordQuerySortBy
   }
 
   QueryBuilder<SoftwareCardRecord, SoftwareCardRecord, QAfterSortBy>
+  sortByUpdateInstructions() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'updateInstructions', Sort.asc);
+    });
+  }
+
+  QueryBuilder<SoftwareCardRecord, SoftwareCardRecord, QAfterSortBy>
+  sortByUpdateInstructionsDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'updateInstructions', Sort.desc);
+    });
+  }
+
+  QueryBuilder<SoftwareCardRecord, SoftwareCardRecord, QAfterSortBy>
   sortByUpdatedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedAt', Sort.asc);
@@ -19267,6 +19455,20 @@ extension SoftwareCardRecordQuerySortThenBy
   }
 
   QueryBuilder<SoftwareCardRecord, SoftwareCardRecord, QAfterSortBy>
+  thenByUpdateInstructions() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'updateInstructions', Sort.asc);
+    });
+  }
+
+  QueryBuilder<SoftwareCardRecord, SoftwareCardRecord, QAfterSortBy>
+  thenByUpdateInstructionsDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'updateInstructions', Sort.desc);
+    });
+  }
+
+  QueryBuilder<SoftwareCardRecord, SoftwareCardRecord, QAfterSortBy>
   thenByUpdatedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedAt', Sort.asc);
@@ -19389,6 +19591,16 @@ extension SoftwareCardRecordQueryWhereDistinct
   }
 
   QueryBuilder<SoftwareCardRecord, SoftwareCardRecord, QDistinct>
+  distinctByUpdateInstructions({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(
+        r'updateInstructions',
+        caseSensitive: caseSensitive,
+      );
+    });
+  }
+
+  QueryBuilder<SoftwareCardRecord, SoftwareCardRecord, QDistinct>
   distinctByUpdatedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'updatedAt');
@@ -19487,6 +19699,13 @@ extension SoftwareCardRecordQueryProperty
   softwareIdProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'softwareId');
+    });
+  }
+
+  QueryBuilder<SoftwareCardRecord, String?, QQueryOperations>
+  updateInstructionsProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'updateInstructions');
     });
   }
 

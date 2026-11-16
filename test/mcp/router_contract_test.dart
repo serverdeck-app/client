@@ -175,7 +175,7 @@ void main() {
       expect((denied!['error'] as Map)['code'], -32002);
       await initialize();
       final result = await session.handle(rpc(2, 'tools/list', {}));
-      expect(((result!['result'] as Map)['tools'] as List).length, 27);
+      expect(((result!['result'] as Map)['tools'] as List).length, 28);
       expect(operations.calls, isEmpty);
     },
   );
@@ -224,7 +224,7 @@ void main() {
         final result = await session.handle(
           rpc(id++, 'tools/list', {'_meta': metadata}),
         );
-        expect(((result!['result'] as Map)['tools'] as List).length, 27);
+        expect(((result!['result'] as Map)['tools'] as List).length, 28);
       }
       for (final params in [
         {'cursor': 'unknown'},

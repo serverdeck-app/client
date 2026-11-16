@@ -37,6 +37,7 @@ final class ToolSchemas {
     'console.release',
     'console.write',
     'console.close',
+    'software.updates.check',
     'software.list',
     'software.get',
     'software.save',

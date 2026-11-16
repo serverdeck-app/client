@@ -12,6 +12,7 @@ import 'package:serverdeck/sync/sync_merge.dart';
 import 'package:serverdeck/sync/sync_transport.dart';
 
 import '../fixtures/feature_harness.dart';
+import '../fixtures/software_card.dart';
 import '../fixtures/sync_cycle.dart';
 import '../fixtures/sync_merge.dart';
 import 'device_auth_test.dart' as auth;
@@ -27,6 +28,42 @@ void main() {
   tearDown(() => h.dispose());
   Future<void> turns() => featureTurns(80);
 
+  test('real snapshot builder captures legacy boundary card into synthetic encrypted cycle', () async {
+    final domain = h.apply.feature.repository.state;
+    final card = legacyMaxCard(
+      domain.profiles[h.localId]!,
+      h.apply.feature.newId(),
+    );
+    domain.softwareCards[card.softwareId] = card;
+    await h.cycle.resume();
+    await turns();
+    expect(h.cycle.view.phase, SyncCyclePhase.synced);
+    expect(
+      h
+          .apply
+          .feature
+          .repository
+          .state
+          .softwareCards[card.softwareId]!
+          .configPaths,
+      card.configPaths,
+    );
+    expect(h.server.publications, greaterThan(0));
+    final after = h.apply.feature.repository.state;
+    final base = after.syncRoots[after.syncState.baseRootId]!;
+    final manifest = h.server.head.manifest!;
+    final root = h.apply.crypto.decryptRoot(
+      envelope: Uint8List.fromList(base.manifestCiphertext),
+      root: manifest.root,
+      objects: manifest.objects,
+      snapshotId: manifest.snapshotId,
+      revision: h.server.head.revision,
+    );
+    expect(
+      root.entries.where((entry) => entry.kind == 'software').single.id,
+      card.softwareId,
+    );
+  });
   test('normal foreground cycle publishes durable pending and schedules one idle poll', () async {
     await h.cycle.resume();
     await turns();

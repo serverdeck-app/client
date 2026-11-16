@@ -353,11 +353,12 @@ final class PortableSyncCard extends PortableSyncContent {
   @override
   void dispose() {}
   @override
-  Map<String, Object?> toJson() => {'kind': kind, 'version': 1, 'card': card};
+  Map<String, Object?> toJson() => {'kind': kind, 'version': 2, 'card': card};
   factory PortableSyncCard.parse(Object? value) {
     final data = _exact(value, {'kind', 'version', 'card'});
     if (data['kind'] != 'software') throw _contentInvalid;
-    _version(data['version']);
+    if (_integer(data['version']) != 2)
+      throw const SyncUnsupportedContentVersion();
     final c = _exact(data['card'], {
       'softwareId',
       'profileId',
@@ -370,6 +371,7 @@ final class PortableSyncCard extends PortableSyncContent {
       'service',
       'dataPaths',
       'configPaths',
+      'updateInstructions',
       'createdAt',
       'updatedAt',
     });
@@ -393,10 +395,14 @@ final class PortableSyncCard extends PortableSyncContent {
       service: c['service'] == null ? null : _text(c['service']),
       dataPaths: paths(c['dataPaths']),
       configPaths: paths(c['configPaths']),
+      updateInstructions: c['updateInstructions'] == null
+          ? null
+          : _text(c['updateInstructions']),
     );
     if (input.name != c['name'] ||
         input.version != c['version'] ||
-        input.service != c['service'])
+        input.service != c['service'] ||
+        input.updateInstructions != c['updateInstructions'])
       throw _contentInvalid;
     final record = SoftwareCardRecord()
       ..softwareId = _uuid(c['softwareId'])
@@ -410,6 +416,7 @@ final class PortableSyncCard extends PortableSyncContent {
       ..service = input.service
       ..dataPaths = input.dataPaths
       ..configPaths = input.configPaths
+      ..updateInstructions = input.updateInstructions
       ..createdAt = _integer(c['createdAt'])
       ..updatedAt = _integer(c['updatedAt']);
     // Structural compatibility uses the same minimum local metadata as create.

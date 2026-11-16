@@ -859,6 +859,7 @@ SoftwareCardRecord copySoftwareCard(SoftwareCardRecord v) =>
       ..service = v.service
       ..dataPaths = List.of(v.dataPaths)
       ..configPaths = List.of(v.configPaths)
+      ..updateInstructions = v.updateInstructions
       ..revision = v.revision
       ..createdAt = v.createdAt
       ..updatedAt = v.updatedAt;

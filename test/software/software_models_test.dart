@@ -87,6 +87,7 @@ void main() {
       'service',
       'dataPaths',
       'configPaths',
+      'updateInstructions',
       'revision',
       'createdAt',
       'updatedAt',

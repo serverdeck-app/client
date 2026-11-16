@@ -162,6 +162,7 @@ class SoftwareCardRecord {
   String? service;
   List<String> dataPaths = [];
   List<String> configPaths = [];
+  String? updateInstructions;
   int revision = 1;
   @Index()
   int createdAt = 0;
