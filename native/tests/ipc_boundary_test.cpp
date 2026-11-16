@@ -60,6 +60,42 @@ void HandshakeUnits() {
     Require(std::find(f.calls.begin(),f.calls.end(),"send") == f.calls.end());
   }
   { BridgeFixture f; f.badVersion = true; Stage(22,[&] { AuthenticateBridge(f.ports,client); }); }
+  { BridgeFixture f; f.ports.readFrame = []() -> std::string { throw EndOfStream{}; }; Stage(23,[&] { AuthenticateBridge(f.ports,client); }); }
+  { BridgeFixture f; f.ports.sendFrame = [](const std::string&) { throw EndOfStream{}; }; Stage(23,[&] { AuthenticateBridge(f.ports,client); }); }
+  { BridgeFixture f; std::vector<std::string> sent;
+    f.ports.sendFrame = [&](const std::string& value) { sent.push_back(value); };
+    f.ports.readFrame = [] { return Encode(Json::Object{{"kind","error"},{"code","AUTH_REQUIRED"}}); };
+    Stage(22,[&] { AuthenticateBridge(f.ports,client); });
+    Require(sent.size() == 2 && Decode(sent.back()).at("kind").string() == "authDeniedAcknowledged");
+  }
+  { BridgeFixture f; int writes = 0;
+    f.ports.sendFrame = [&](const std::string&) { if (++writes == 2) throw EndOfStream{}; };
+    f.ports.readFrame = [] { return Encode(Json::Object{{"kind","error"},{"code","AUTH_REQUIRED"}}); };
+    Stage(22,[&] { AuthenticateBridge(f.ports,client); });
+  }
+  { AuthDenialDelivery delivery; Require(!delivery.Acknowledge()); delivery.Queue();
+    auto closing = std::async(std::launch::async, [&] { return delivery.Await(std::chrono::milliseconds(5000)); });
+    Require(closing.wait_for(std::chrono::milliseconds(0)) == std::future_status::timeout);
+    Require(delivery.Acknowledge()); Require(closing.get());
+  }
+  { AuthDenialDelivery delivery; delivery.Queue(); Require(!delivery.Await(std::chrono::milliseconds(0))); }
+  { AuthDenialDelivery delivery; delivery.Queue(); delivery.Fail(); Require(!delivery.Await(std::chrono::milliseconds(5000))); }
+  { AuthDenialDelivery delivery; Require(delivery.Await(std::chrono::milliseconds(0))); }
+  for (const auto* malformed : {
+    R"({"kind":"error","code":"AUTH_REQUIRED","extra":true})",
+    R"({"kind":"error"})",
+    R"({"kind":"authorized","version":"1","grantVersion":7,"expiresAt":1700000000000})",
+    R"({"kind":"authorized","version":2,"grantVersion":7,"expiresAt":1700000000000})",
+    R"({"kind":"authorized","version":1,"grantVersion":7})",
+    R"({"kind":"authorized","version":1,"grantVersion":"7","expiresAt":1700000000000})",
+    R"({"kind":"authorized","version":1,"expiresAt":1700000000000})",
+    R"({"kind":"authorized","version":1,"grantVersion":7,"expiresAt":null})",
+    R"({"kind":"authorized","version":1,"grantVersion":7,"expiresAt":0})",
+    R"({"kind":"authorized","version":1,"grantVersion":7,"expiresAt":1700000000000,"extra":true})"
+  }) {
+    BridgeFixture f; f.ports.readFrame = [=] { return std::string(malformed); };
+    Stage(23,[&] { AuthenticateBridge(f.ports,client); });
+  }
   Require(PrivateMetadataPolicy("u","u",false,true,{"u","S-1-5-18","S-1-5-32-544"}));
   Require(!PrivateMetadataPolicy("u","u",true,true,{"u"})); Require(!PrivateMetadataPolicy("u","u",false,false,{}));
   Require(!PrivateMetadataPolicy("u","other",false,true,{"u"})); Require(!PrivateMetadataPolicy("u","u",false,true,{"S-1-1-0"}));

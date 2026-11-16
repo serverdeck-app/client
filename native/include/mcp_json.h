@@ -140,6 +140,7 @@ inline bool CanonicalUuid(const std::string& value) {
 // until its complete newline-terminated frame is available.
 class LineBuffer {
  public:
+  bool HasFrame() const { return bytes_.find('\n') != std::string::npos; }
   size_t capacity() const { return kFrameBytes - bytes_.size(); }
   void Push(const char* data, size_t length) {
     if (length > capacity()) InvalidJson(); bytes_.append(data, length);

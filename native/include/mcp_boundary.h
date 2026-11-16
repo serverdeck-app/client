@@ -5,10 +5,40 @@
 #include <functional>
 #include <mutex>
 #include <thread>
+#include <condition_variable>
+#include <chrono>
 
 namespace sd::mcp {
 struct BoundaryFailure { int code; };
 struct EndOfStream {};
+class AuthDenialDelivery {
+ public:
+  void Queue() { std::lock_guard<std::mutex> lock(mutex_); queued_ = true; }
+  bool Acknowledge() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (!queued_ || failed_) return false;
+    acknowledged_ = true; ready_.notify_all(); return true;
+  }
+  void Fail() { std::lock_guard<std::mutex> lock(mutex_); failed_ = true; ready_.notify_all(); }
+  bool Await(std::chrono::milliseconds timeout) {
+    std::unique_lock<std::mutex> lock(mutex_);
+    if (!queued_) return true;
+    ready_.wait_for(lock, timeout, [&] { return acknowledged_ || failed_; });
+    return acknowledged_;
+  }
+ private:
+  std::mutex mutex_;
+  std::condition_variable ready_;
+  bool queued_ = false, acknowledged_ = false, failed_ = false;
+};
+inline const char* BridgeFailureMessage(int code) {
+  switch (code) {
+    case 20: return "APP_UNAVAILABLE\n";
+    case 21: return "PEER_REJECTED\n";
+    case 22: return "AUTH_REQUIRED\n";
+    default: return "MCP_PROTOCOL\n";
+  }
+}
 class FrameReservations {
  public:
   bool Admit() { if (count_ >= 16) return false; ++count_; return true; }
@@ -84,10 +114,20 @@ inline BridgeAuthorization AuthenticateBridge(BridgePorts& ports, const std::str
     if (secret.size() != 32) InvalidJson();
     Json::Object frame{{"kind", "auth"}, {"version", 1}, {"ownerEpoch", owner.epoch}, {"clientId", client}, {"grantVersion", version}, {"secret", EncodeBase64(secret.data(), secret.size(), true)}};
     auth = Encode(frame); Wipe(std::get<std::string>(frame.at("secret").value)); Wipe(secret);
-    ports.sendFrame(auth); Wipe(auth);
+    failure = 23; ports.sendFrame(auth); Wipe(auth);
     const auto accepted = Decode(ports.readFrame());
-    if (accepted.at("kind").string() != "authorized" || accepted.at("version").integer() != 1 || accepted.at("grantVersion").integer() != version) InvalidJson();
-    return {version, accepted.at("expiresAt").integer()};
+    if (accepted.object().size() == 2 && accepted.at("kind").string() == "error" && accepted.at("code").string() == "AUTH_REQUIRED") {
+      // The server closes only after this receipt acknowledgment or its bounded
+      // deadline. A failed ACK cannot erase the explicit denial already read.
+      try { ports.sendFrame(Encode(Json::Object{{"kind","authDeniedAcknowledged"},{"version",1}})); } catch (...) {}
+      throw BoundaryFailure{22};
+    }
+    if (accepted.object().size() != 4 || accepted.at("kind").string() != "authorized" || accepted.at("version").integer() != 1) InvalidJson();
+    const auto acceptedVersion = accepted.at("grantVersion").integer();
+    const auto expiresAt = accepted.at("expiresAt").integer();
+    if (acceptedVersion < 1 || acceptedVersion > 9007199254740991LL || expiresAt < 1 || expiresAt > 9007199254740991LL) InvalidJson();
+    if (acceptedVersion != version) throw BoundaryFailure{22};
+    return {version, expiresAt};
   } catch (const BoundaryFailure&) { Wipe(cipher); Wipe(secret); Wipe(auth); throw; }
   catch (...) { Wipe(cipher); Wipe(secret); Wipe(auth); throw BoundaryFailure{failure}; }
 }
@@ -108,6 +148,7 @@ using WriteFrameBytes = std::function<size_t(const char*,size_t)>;
 class FrameReader {
  public:
   explicit FrameReader(std::function<uint64_t()> now) : now_(std::move(now)) {}
+  bool HasFrame() const { return buffer_.HasFrame(); }
   std::string Read(const ReadFrameBytes& read, uint32_t timeout = UINT32_MAX) {
     const auto start = now_();
     for (;;) { std::string frame; if (buffer_.Take(frame)) return frame; if (!buffer_.capacity()) InvalidJson();

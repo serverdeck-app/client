@@ -1,5 +1,7 @@
 #include "mcp_pipe.h"
 #include "mcp_boundary.h"
+#include "mcp_idle_bridge.h"
+#include <chrono>
 #include "instance.h"
 #include <aclapi.h>
 #include <sddl.h>
@@ -47,6 +49,7 @@ void WriteLine(HANDLE pipe, HANDLE stop, const std::string& text) {
 class Lines {
  public:
   Lines() : reader_([] { return GetTickCount64(); }) {}
+  bool HasFrame() const { return reader_.HasFrame(); }
   std::string Read(HANDLE pipe, HANDLE stop, DWORD timeout = INFINITE) {
     return reader_.Read([&](char* bytes, size_t count, uint32_t remaining) {
       return static_cast<size_t>(Io(pipe, stop, false, bytes, static_cast<DWORD>(count), remaining));
@@ -88,9 +91,10 @@ struct Broker::Impl {
     std::string id; std::unique_ptr<Handle> pipe; Handle stop; bool authorized = false;
     std::atomic<bool> closed{false}; FrameReservations frames;
     std::mutex outputMutex, closeMutex; std::condition_variable outputReady; std::deque<std::string> output;
+    AuthDenialDelivery denial;
     OwnedIoWorkers workers;
     void Stop() {
-      std::lock_guard<std::mutex> lock(closeMutex); closed = true; SetEvent(stop.get());
+      std::lock_guard<std::mutex> lock(closeMutex); closed = true; denial.Fail(); SetEvent(stop.get());
       if (pipe) { CancelIoEx(pipe->get(), nullptr); DisconnectNamedPipe(pipe->get()); } outputReady.notify_all();
     }
     void Join() { workers.Close(); }
@@ -145,7 +149,11 @@ struct Broker::Impl {
       Push({"mcpFrame", c->id, frame, {}, {}}, c);
       for (;;) {
         frame = lines.Read(c->pipe->get(), c->stop.get()); const auto value = Decode(frame);
-        { std::lock_guard<std::mutex> lock(mutex); if (!c->authorized || value.object().size() != 2 || value.at("kind").string() != "mcp") Fail(); }
+        { std::lock_guard<std::mutex> lock(mutex);
+          if (!c->authorized && value.object().size() == 2 && value.at("kind").string() == "authDeniedAcknowledged" &&
+              value.at("version").integer() == 1 && c->denial.Acknowledge()) return;
+          if (!c->authorized || value.object().size() != 2 || value.at("kind").string() != "mcp") Fail();
+        }
         value.at("payload").object(); Push({"mcpFrame", c->id, frame, {}, {}}, c);
       }
     } catch (...) { c->Stop(); Push({"_mcpStopped", c->id, {}, {}, {}}, c); }
@@ -222,15 +230,21 @@ void Broker::Send(const std::string& id, const std::string& frame) {
   { std::lock_guard<std::mutex> lock(s.mutex); const auto it = s.channels.find(id); if (it == s.channels.end() || it->second->closed) Fail(); c = it->second;
     const auto kind = value.at("kind").string();
     if (!c->authorized) { if (kind == "authorized") { if (value.at("version").integer() != 1) InvalidJson(); c->authorized = true; }
-      else if (kind != "error") InvalidJson(); }
+      else {
+        if (kind != "error" || value.object().size() != 2 || value.at("code").string() != "AUTH_REQUIRED") InvalidJson();
+        c->denial.Queue();
+      } }
     else if (kind != "mcp" || value.object().size() != 2) InvalidJson();
   }
   { std::lock_guard<std::mutex> lock(c->outputMutex); if (c->closed || c->output.size() >= 16) { c->Stop(); Fail(); } c->output.push_back(frame); } c->outputReady.notify_one();
 }
 void Broker::Close(const std::string& id) {
   if (!CanonicalUuid(id)) InvalidJson(); auto& s = *impl_; std::shared_ptr<Impl::Channel> c;
-  { std::lock_guard<std::mutex> lock(s.mutex); const auto it = s.channels.find(id); if (it == s.channels.end()) return; c = it->second; c->Stop(); }
-  c->Join(); { std::lock_guard<std::mutex> lock(s.mutex); s.channels.erase(id); }
+  { std::lock_guard<std::mutex> lock(s.mutex); const auto it = s.channels.find(id); if (it == s.channels.end()) return; c = it->second; }
+  // Send acknowledges enqueueing; terminal auth errors additionally require a
+  // helper receipt before disconnecting, otherwise Stop could discard the frame.
+  c->denial.Await(std::chrono::milliseconds(5000));
+  c->Stop(); c->Join(); { std::lock_guard<std::mutex> lock(s.mutex); s.channels.erase(id); }
 }
 std::vector<Event> Broker::TakeEvents() {
   auto& s = *impl_; std::deque<Event> pending;
@@ -325,10 +339,33 @@ int RunStdio(const std::string& clientId) {
     };
     ports.sendFrame = [&](const std::string& frame) { WriteLine(pipe->get(), stop.get(), frame); };
     ports.readFrame = [&] { return lines.Read(pipe->get(), stop.get(), 5000); };
-    try { AuthenticateBridge(ports, clientId); } catch (const BoundaryFailure& error) { failure = error.code; throw; }
-    failure = 23; std::atomic<int> outcome{0}; std::mutex stdoutMutex;
-    const auto writeOutput = [&](const std::string& text) { std::lock_guard<std::mutex> lock(stdoutMutex); PlainWrite(GetStdHandle(STD_OUTPUT_HANDLE), text + '\n'); };
-    const auto finish = [&](int value) { if (value) { int expected = 0; outcome.compare_exchange_strong(expected, value); } SetEvent(stop.get()); CancelIoEx(pipe->get(), nullptr); };
+    std::mutex inputMutex;
+    std::condition_variable inputReady;
+    BridgeFrames input;
+    OutputFrames output;
+    BridgeOutcome outcome;
+    const auto writeOutput = [&](const std::string& text) {
+      output.Push(text);
+    };
+    const auto finish = [&](int value) {
+      outcome.Finish(value);
+      { std::lock_guard<std::mutex> lock(inputMutex); SetEvent(stop.get()); }
+      output.Stop(); inputReady.notify_all();
+    };
+    IdleBridgePorts idlePorts;
+    idlePorts.connect = [&] {
+      // Wake always re-verifies current owner, grant and DPAPI. No cached secret.
+      pipe.reset(); lines = Lines();
+      return AuthenticateBridge(ports, clientId).version;
+    };
+    idlePorts.disconnect = [&] { pipe.reset(); lines = Lines(); };
+    idlePorts.send = ports.sendFrame;
+    idlePorts.receive = ports.readFrame;
+    idlePorts.output = writeOutput;
+    idlePorts.now = [] { return GetTickCount64(); };
+    IdleBridge bridge(std::move(idlePorts));
+    try { bridge.Connect(); } catch (const BoundaryFailure& error) { failure = error.code; throw; }
+    failure = 23;
     const auto cancelStdio = [](std::thread& inputThread, std::thread& outputThread) {
       for (;;) {
         bool running = false;
@@ -353,21 +390,42 @@ int RunStdio(const std::string& clientId) {
               if (error != ERROR_BROKEN_PIPE && error != ERROR_HANDLE_EOF && error != ERROR_NO_DATA && WaitForSingleObject(stop.get(), 0) != WAIT_OBJECT_0) Fail();
               return size_t{0};
             } return static_cast<size_t>(n);
-          }, [&](const std::string& frame) { WriteLine(pipe->get(), stop.get(), frame); }, writeOutput,
-             [&] { return WaitForSingleObject(stop.get(), 0) == WAIT_OBJECT_0; });
+          }, [&](const std::string& frame) {
+            std::lock_guard<std::mutex> lock(inputMutex);
+            input.Push(frame); inputReady.notify_one();
+          }, writeOutput, [&] { return WaitForSingleObject(stop.get(), 0) == WAIT_OBJECT_0; });
           finish(0);
         } catch (...) { finish(WaitForSingleObject(stop.get(), 0) == WAIT_OBJECT_0 ? 0 : 23); }
       }, [&] {
-        try { PumpStdioOutput([&] { return lines.Read(pipe->get(), stop.get()); }, writeOutput); finish(0); }
+        try { output.Run([](const std::string& text) { PlainWrite(GetStdHandle(STD_OUTPUT_HANDLE), text + '\n'); }); }
         catch (...) { finish(WaitForSingleObject(stop.get(), 0) == WAIT_OBJECT_0 ? 0 : 23); }
       });
-      WaitForSingleObject(stop.get(), INFINITE);
-    } catch (...) { finish(23); }
+      while (WaitForSingleObject(stop.get(), 0) != WAIT_OBJECT_0) {
+        // One worker owns the pipe. Peek does not consume partial frames.
+        if (bridge.connected()) {
+          DWORD available = 0;
+          if (!PeekNamedPipe(pipe->get(), nullptr, 0, nullptr, &available, nullptr)) Fail();
+          if (available || lines.HasFrame()) { bridge.Output(lines.Read(pipe->get(), stop.get(), 5000)); continue; }
+        }
+        std::string frame;
+        {
+          std::unique_lock<std::mutex> lock(inputMutex);
+          if (input.empty()) {
+            bridge.Park();
+            if (bridge.connected()) inputReady.wait_for(lock, std::chrono::milliseconds(25));
+            else inputReady.wait(lock, [&] { return !input.empty() || WaitForSingleObject(stop.get(), 0) == WAIT_OBJECT_0; });
+          }
+          if (!input.empty()) { frame = input.Pop(); }
+        }
+        if (!frame.empty()) bridge.Input(frame);
+      }
+    } catch (const BoundaryFailure& error) { finish(error.code); }
+    catch (...) { finish(23); }
     workers.Close();
-    return outcome.load();
+    if (outcome.code()) Stderr(BridgeFailureMessage(outcome.code()));
+    return outcome.code();
   } catch (...) {
-    switch (failure) { case 20: Stderr("APP_UNAVAILABLE\n"); break; case 21: Stderr("PEER_REJECTED\n"); break;
-      case 22: Stderr("AUTH_REQUIRED\n"); break; default: Stderr("MCP_PROTOCOL\n"); break; } return failure;
+    Stderr(BridgeFailureMessage(failure)); return failure;
   }
 }
 }  // namespace sd::mcp
