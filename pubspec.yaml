@@ -1,7 +1,7 @@
 name: serverdeck
 description: ServerDeck brand and shared component library.
 publish_to: none
-version: 0.3.10
+version: 0.3.11
 environment:
   sdk: '>=3.13.5 <4.0.0'
 dependencies:
@@ -13,6 +13,8 @@ dependencies:
     path: third_party/xterm
   commons_validator: 0.1.0
   pointycastle: 4.0.0
+  qr_flutter: 4.1.0
+  mobile_scanner: 7.5.0
   dartssh2:
     path: third_party/dartssh2
   isar_community: 3.4.1

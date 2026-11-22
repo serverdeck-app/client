@@ -17,7 +17,9 @@ def audit(apk, aapt, version, code):
     if "sdkVersion:'24'" not in badging or "targetSdkVersion:'36'" not in badging:
         raise ValueError('APK SDK mismatch')
     permissions = set(re.findall(r"^uses-permission: name='([^']+)'", badging, re.M))
-    if permissions != {'android.permission.INTERNET', 'com.unng.serverdeck.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION'}:
+    if permissions != {'android.permission.INTERNET', 'android.permission.CAMERA',
+                       'android.permission.ACCESS_NETWORK_STATE',
+                       'com.unng.serverdeck.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION'}:
         raise ValueError('APK permissions mismatch')
     manifest = subprocess.run([aapt, 'dump', 'xmltree', apk, 'AndroidManifest.xml'],
                               check=True, capture_output=True, text=True, timeout=30).stdout

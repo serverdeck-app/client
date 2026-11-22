@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:serverdeck/runtime/android_platform.dart';
 import 'package:serverdeck/runtime/platform_ports.dart';
+import 'package:serverdeck/runtime/permission_lifecycle.dart';
 import 'package:serverdeck/storage/store_manifest.dart';
 
 const epoch = '00000000-0000-4000-8000-000000000001';
@@ -20,12 +21,17 @@ void main() {
   final binding = TestWidgetsFlutterBinding.ensureInitialized();
   final messenger = binding.defaultBinaryMessenger;
   late AndroidPlatform platform;
+  late CameraPermissionGate permissionGate;
   late List<MethodCall> calls;
   Future<Object?> Function(MethodCall)? handler;
   setUp(() {
     calls = [];
     handler = null;
-    platform = AndroidPlatform(channel: channel);
+    permissionGate = CameraPermissionGate();
+    platform = AndroidPlatform(
+      channel: channel,
+      cameraPermissionGate: permissionGate,
+    );
     messenger.setMockMethodCallHandler(channel, (call) async {
       calls.add(call);
       if (handler != null) return handler!(call);
@@ -43,6 +49,24 @@ void main() {
     handler = null;
     await platform.dispose();
     messenger.setMockMethodCallHandler(channel, null);
+  });
+  test('camera startup permission preserves only inactive foreground, real pause still propagates', () async {
+    await platform.prepareStorage();
+    binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    final lease = permissionGate.begin(() {});
+    binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    expect(platform.phase, PlatformLifecyclePhase.resumed);
+    lease.complete(AppLifecycleState.inactive);
+    binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    expect(permissionGate.active, isFalse);
+    binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    expect(platform.phase, PlatformLifecyclePhase.paused);
+    binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    permissionGate.begin(() {});
+    binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    expect(permissionGate.active, isFalse);
+    expect(platform.phase, PlatformLifecyclePhase.paused);
+    binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
   });
   test('single initializer captures private root/epoch and Android capability policy', () async {
     final results = await Future.wait([

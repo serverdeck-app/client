@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
 
@@ -11,30 +10,17 @@ import 'sync_repository.dart';
 import 'sync_secret_box.dart';
 import 'sync_transport.dart';
 import 'sync_wire.dart';
+import 'sync_recovery_code.dart';
+import 'sync_key_transfer.dart';
+export 'sync_recovery_code.dart' show SyncRecoveryCodec;
 
 const _invalidRecovery = OperationFailure(FailureCode.invalidArgument);
 
-abstract final class SyncRecoveryCodec {
-  static String encode(Uint8List key) {
-    if (key.length != 32) throw _invalidRecovery;
-    return 'SD1-${base64Url.encode(key).replaceAll('=', '')}-${syncSha256(key).substring(0, 8)}';
-  }
-
-  /// Returns an owned key; caller must wipe it even on later authentication failure.
-  static Uint8List decode(String code) {
-    final match = RegExp(r'^SD1-([A-Za-z0-9_-]{43})-([0-9a-f]{8})$')
-        .firstMatch(code.trim());
-    if (match == null) throw _invalidRecovery;
-    Uint8List? key;
-    try {
-      key = base64Url.decode('${match[1]}=');
-      if (key.length != 32 || encode(key) != match[0]) throw _invalidRecovery;
-      return key;
-    } catch (_) {
-      key?.fillRange(0, key.length, 0);
-      throw _invalidRecovery;
-    }
-  }
+final class SyncQrImportCapture {
+  SyncQrImportCapture._(this.generation, this.context);
+  final int generation;
+  final SyncVaultContext context;
+  SyncIdentity get identity => context.fence.identity;
 }
 
 /// Secret-only dialog payload; never part of ordinary state or public projection.
@@ -391,7 +377,71 @@ final class SyncVaultOwner {
     if (identical(_challenge, challenge)) lock();
   }
 
-  Future<void> unlock(String code) async {
+  SyncQrImportCapture captureQrImport() {
+    final context = _context;
+    if (context == null ||
+        (_head?.revision ?? 0) == 0 ||
+        !{SyncVaultPhase.locked, SyncVaultPhase.error}.contains(view.phase))
+      throw _invalidRecovery;
+    _guard(_generation, context);
+    return SyncQrImportCapture._(_generation, context);
+  }
+
+  bool isQrImportCurrent(SyncQrImportCapture capture) {
+    try {
+      _guard(capture.generation, capture.context);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> unlockQr(
+    SyncKeyTransfer transfer,
+    SyncQrImportCapture capture,
+  ) async {
+    _guard(capture.generation, capture.context);
+    final identity = transfer.identity;
+    if (!_sameQrBinding(identity, capture.identity)) throw _invalidRecovery;
+    await unlock(transfer.recoveryCode, qrCapture: capture);
+  }
+
+  static bool _sameQrBinding(SyncIdentity a, SyncIdentity b) =>
+      a.serviceOrigin == b.serviceOrigin &&
+      a.accountId == b.accountId &&
+      a.vaultId == b.vaultId;
+
+  Future<SyncKeyTransfer> exportQr() async {
+    final context = _context, generation = _generation;
+    if (context == null || view.phase != SyncVaultPhase.ready)
+      throw _invalidRecovery;
+    _guard(generation, context);
+    Uint8List? key;
+    SyncCrypto? candidate;
+    try {
+      final head = await _readHead(generation, context);
+      if (head.revision == 0)
+        throw const OperationFailure(FailureCode.conflict);
+      final wrapped = repository.domain.read(
+        (r) => r.syncSecrets.protectedVaultRootKey,
+      );
+      if (wrapped == null)
+        throw const OperationFailure(FailureCode.protectionUnavailable);
+      key = await box.unprotectVaultKey(context.fence.identity, wrapped);
+      _guard(generation, context);
+      candidate = SyncCrypto(identity: context.fence.identity, rootKey: key);
+      await _verifyRemote(generation, context, head, candidate);
+      _verifyLocalRoots(candidate, context, _localRoots());
+      _guard(generation, context);
+      return SyncKeyTransfer.fromKey(context.fence.identity, key);
+    } finally {
+      key?.fillRange(0, key.length, 0);
+      candidate?.dispose();
+    }
+  }
+
+  Future<void> unlock(String code, {SyncQrImportCapture? qrCapture}) async {
+    if (qrCapture != null) _guard(qrCapture.generation, qrCapture.context);
     final generation = _begin(SyncVaultPhase.unlocking);
     Uint8List? key, wrapped;
     SyncCrypto? candidate;
@@ -399,6 +449,11 @@ final class SyncVaultOwner {
       key = SyncRecoveryCodec.decode(code);
       final context = await access.vaultContext();
       _guard(generation, context);
+      if (qrCapture != null &&
+          (context.epoch != qrCapture.context.epoch ||
+              context.fence.identity.deviceId != qrCapture.identity.deviceId ||
+              !_sameQrBinding(context.fence.identity, qrCapture.identity)))
+        throw _invalidRecovery;
       _context = context;
       final head = await _readHead(generation, context);
       // An empty vault has no authentication oracle for a supplied code.

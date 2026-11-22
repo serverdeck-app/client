@@ -12,6 +12,9 @@ import 'sync_merge.dart';
 import 'sync_wire.dart';
 import '../domain/models.dart';
 import 'sync_recovery.dart';
+import 'sync_key_transfer.dart';
+import 'sync_qr_camera.dart';
+import 'sync_qr_view.dart';
 
 String _recoveryError(String? code) => switch (code) {
   'INVALID_ARGUMENT' => 'Код не подходит или данные хранилища повреждены.',
@@ -29,13 +32,21 @@ String _recoveryError(String? code) => switch (code) {
 /// C02/C03/C10/C11/C12/C13/C14/C16/C17/C18/C24 recovery section. Account/login,
 /// consent, conflicts and devices compose around this in their own story tasks.
 class SyncRecoveryView extends StatefulWidget {
-  const SyncRecoveryView({super.key, required this.owner});
+  const SyncRecoveryView({
+    super.key,
+    required this.owner,
+    this.platform = 'windows',
+    this.createCameraDriver,
+  });
   final SyncVaultOwner owner;
+  final String platform;
+  final SyncQrCameraDriver Function()? createCameraDriver;
   @override
   State<SyncRecoveryView> createState() => _SyncRecoveryViewState();
 }
 
-class _SyncRecoveryViewState extends State<SyncRecoveryView> {
+class _SyncRecoveryViewState extends State<SyncRecoveryView>
+    with WidgetsBindingObserver {
   StreamSubscription<SyncVaultView>? _subscription;
   final _routes =
       <
@@ -47,9 +58,21 @@ class _SyncRecoveryViewState extends State<SyncRecoveryView> {
         )
       >{};
   bool _busy = false;
+  bool _qrError = false;
+  int _qrIntent = 0;
+  bool get _foreground =>
+      WidgetsBinding.instance.lifecycleState == null ||
+      WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (widget.platform == 'windows' && state != AppLifecycleState.resumed)
+      _qrIntent++;
+  }
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _listen();
   }
 
@@ -95,6 +118,7 @@ class _SyncRecoveryViewState extends State<SyncRecoveryView> {
   void didUpdateWidget(SyncRecoveryView old) {
     super.didUpdateWidget(old);
     if (old.owner != widget.owner) {
+      _qrIntent++;
       unawaited(_subscription?.cancel());
       _closeRoutes();
       _cancelPending(old.owner);
@@ -105,6 +129,8 @@ class _SyncRecoveryViewState extends State<SyncRecoveryView> {
 
   @override
   void dispose() {
+    _qrIntent++;
+    WidgetsBinding.instance.removeObserver(this);
     unawaited(_subscription?.cancel());
     _closeRoutes();
     _cancelPending(widget.owner);
@@ -155,6 +181,61 @@ class _SyncRecoveryViewState extends State<SyncRecoveryView> {
     }
   }
 
+  Future<void> _qr({required bool scan}) async {
+    if (_busy) return;
+    if (!scan && !_foreground) return;
+    final intent = ++_qrIntent;
+    final owner = widget.owner, navigator = Navigator.of(context);
+    final generation = owner.actionGeneration;
+    setState(() {
+      _busy = true;
+      _qrError = false;
+    });
+    SyncKeyTransfer? transfer;
+    var manual = false;
+    try {
+      final capture = scan ? owner.captureQrImport() : null;
+      if (!scan) transfer = await owner.exportQr();
+      if (!mounted ||
+          owner != widget.owner ||
+          owner.actionGeneration != generation ||
+          !scan && (intent != _qrIntent || !_foreground))
+        return;
+      final secret = transfer;
+      final route = DialogRoute<void>(
+        context: context,
+        builder: (_) => SyncQrDialog(
+          owner: owner,
+          transfer: secret,
+          capture: capture,
+          canDisplay: scan
+              ? null
+              : () =>
+                    mounted &&
+                    owner == widget.owner &&
+                    intent == _qrIntent &&
+                    _foreground,
+          createCameraDriver: widget.createCameraDriver,
+          onManual: () => manual = true,
+        ),
+      );
+      final entry = (owner, route, navigator, null);
+      _routes.add(entry);
+      try {
+        await navigator.push(route);
+      } finally {
+        _routes.remove(entry);
+      }
+    } catch (_) {
+      if (mounted && owner == widget.owner) setState(() => _qrError = true);
+    } finally {
+      transfer?.dispose();
+      if (mounted && owner == widget.owner) setState(() => _busy = false);
+    }
+    if (manual && mounted && owner == widget.owner)
+      await _dialog(initialize: false);
+  }
+
   @override
   Widget build(BuildContext context) {
     final view = widget.owner.view;
@@ -184,8 +265,27 @@ class _SyncRecoveryViewState extends State<SyncRecoveryView> {
         const Text(
           'Разблокировка не заменяет согласие на синхронизацию. Код восстановления не передаётся сервису.',
         ),
+        if (_qrError)
+          const DeckNotice(
+            message: 'Не удалось подготовить QR. Сначала синхронизируйте и проверьте хранилище.',
+            tone: DeckTone.error,
+          ),
         DeckActions(
           children: [
+            if (widget.platform == 'windows' &&
+                view.phase == SyncVaultPhase.ready)
+              DeckButton(
+                onPressed: _busy ? null : () => _qr(scan: false),
+                child: const Text('Показать QR для Android'),
+              ),
+            if (widget.platform == 'android' &&
+                (view.phase == SyncVaultPhase.locked ||
+                    view.phase == SyncVaultPhase.error &&
+                        (view.revision ?? 0) > 0))
+              DeckButton(
+                onPressed: _busy ? null : () => _qr(scan: true),
+                child: const Text('Сканировать QR'),
+              ),
             if ({
               SyncVaultPhase.unavailable,
               SyncVaultPhase.error,
@@ -303,7 +403,7 @@ class _RecoveryDialogState extends State<_RecoveryDialog> {
         children: [
           if (initialize) ...[
             const Text(
-              'Храните код в надёжном месте отдельно от устройства. Вход по почте не восстанавливает этот ключ.',
+              'Храните код в надёжном месте отдельно от устройства. Вход через VK не восстанавливает этот ключ.',
             ),
             SelectableText(widget.code!),
             CheckboxListTile(
@@ -676,7 +776,10 @@ class _SyncAccountViewState extends State<SyncAccountView> {
             normalizeOrigin: widget.normalizeOrigin,
           ),
         if (view.phase == SyncAuthPhase.signedIn) ...[
-          SyncRecoveryView(owner: widget.owner.vault),
+          SyncRecoveryView(
+            owner: widget.owner.vault,
+            platform: widget.platform,
+          ),
           if (widget.owner.cycle != null)
             SyncStatusView(owner: widget.owner.cycle!),
         ],

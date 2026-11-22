@@ -100,8 +100,14 @@ unsigned compilation evidence.
 
 Use aapt dump badging/xmltree to verify com.unng.serverdeck, min24/target36, expected
 version/build, allowBackup=false and usesCleartextTraffic=false. Only requested OS
-permission is INTERNET; AndroidX's generated app-local signature permission is
+permissions are INTERNET, CAMERA and ACCESS_NETWORK_STATE; AndroidX's generated app-local signature permission is
 permitted. No foreground service, broad storage permission or auth callback/app link.
+QR key transfer adds CAMERA (requested only by explicit scan) and SDK
+ACCESS_NETWORK_STATE alongside INTERNET and AndroidX's app-local signature permission.
+Camera hardware is optional; manual recovery-code entry remains available.
+The bundled MLKit model decodes images/outputs on device without a mandatory model
+download; SDK usage/performance telemetry may use network. Key/frames/decoded QR
+are never sent by the feature. No gallery/file/image export or QR deep link.
 Check ZIP native library ABI directories and Isar presence, zipalign16KiB page
 alignment and native ELF LOAD alignment using NDK llvm-readelf. Do not infer runtime
 availability from archive presence alone.

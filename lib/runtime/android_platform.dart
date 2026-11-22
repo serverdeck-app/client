@@ -8,6 +8,7 @@ import '../domain/models.dart' show isCanonicalUuid;
 import '../storage/store_manifest.dart';
 import '../sync/sync_wire.dart';
 import 'platform_ports.dart';
+import 'permission_lifecycle.dart';
 
 const _secretLimit = 1024 * 1024;
 const _protectedLimit = 2 * 1024 * 1024;
@@ -40,11 +41,17 @@ final class AndroidPlatform
   AndroidPlatform({
     MethodChannel channel = const MethodChannel('serverdeck/android'),
     int Function()? awakeMicros,
-  }) : _channel = channel {
+    CameraPermissionGate? cameraPermissionGate,
+  }) : _channel = channel,
+       _cameraPermissionGate =
+           cameraPermissionGate ?? CameraPermissionGate.shared {
     final clock = Stopwatch()..start();
     _awake = awakeMicros ?? (() => clock.elapsedMicroseconds);
   }
   final MethodChannel _channel;
+  final CameraPermissionGate _cameraPermissionGate;
+  void _permissionChanged() =>
+      _lifecycle(WidgetsBinding.instance.lifecycleState);
   late final int Function() _awake;
   Future<void>? _clockSampling;
   int _lifecycleSerial = 0;
@@ -141,6 +148,7 @@ final class AndroidPlatform
       _context = result;
       if (!_observing) {
         WidgetsBinding.instance.addObserver(this);
+        _cameraPermissionGate.addListener(_permissionChanged);
         _observing = true;
       }
       _lifecycle(WidgetsBinding.instance.lifecycleState);
@@ -351,6 +359,11 @@ final class AndroidPlatform
   }
 
   void _lifecycle(AppLifecycleState? state) {
+    if (_cameraPermissionGate.preserveInactive(
+      state,
+      _phase == PlatformLifecyclePhase.resumed,
+    ))
+      return;
     final next = switch (state) {
       AppLifecycleState.resumed => PlatformLifecyclePhase.resumed,
       AppLifecycleState.detached => PlatformLifecyclePhase.detached,
@@ -492,6 +505,7 @@ final class AndroidPlatform
     await _control('platform.dispose');
     _disposed = true;
     if (_observing) WidgetsBinding.instance.removeObserver(this);
+    _cameraPermissionGate.removeListener(_permissionChanged);
     unawaited(_changes.close());
   }
 }
