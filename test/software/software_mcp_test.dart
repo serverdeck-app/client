@@ -444,7 +444,7 @@ void main() {
     expect(cursor, isNull);
     expect(seen.length, 30);
   });
-  test('registry version4 retains original21 definitions except additive reconnect status', () {
+  test('registry version 4 retains the original tools with the documented additions', () {
     expect(registry['contractVersion'], 4);
     expect(schemas.tools.length, 28);
     final original =
@@ -460,6 +460,15 @@ void main() {
         'maximum': 9007199254740991,
       });
     }
+    final consoleList = original.singleWhere(
+      (tool) => tool['name'] == 'console.list',
+    );
+    final success = (consoleList['outputSchema']['oneOf'] as List).first;
+    final sessions =
+        success['properties']['value']['properties']['sessions'] as Map;
+    expect(sessions['maxItems'], 8);
+    sessions['maxItems'] = 4;
+
     final digest = SHA256Digest()
         .process(Uint8List.fromList(utf8.encode(jsonEncode(original))))
         .map((b) => b.toRadixString(16).padLeft(2, '0'))

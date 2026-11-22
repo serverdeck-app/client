@@ -49,13 +49,26 @@ final class ConsoleOwner
   final _clock = Stopwatch()..start();
   late final _replay = ConsoleReplayBook(actors.ownerEpoch);
   final _notifier = _ConsoleNotifier();
+  static const _perProfileLimit = 4, _globalLimit = 16;
   final _sessions = <String, _ConsoleSession>{};
+  final _history = <String, _ConsoleSession>{};
+
   final _selectedSessions = <String, String>{};
   final _visible = <String>{};
   final _pending = <Future<void>>{};
   StreamSubscription<ConsoleInvalidation>? _subscription;
   bool _stopped = false, _disposed = false, _keyboardActive = true;
   OperationFailure? lastFailure;
+
+  Iterable<_ConsoleSession> get _newestHistoryFirst =>
+      _history.values.toList().reversed;
+  List<_ConsoleSession> get _allSessions => [
+    ..._sessions.values,
+    ..._newestHistoryFirst,
+  ];
+
+  _ConsoleSession? _session(String id) => _sessions[id] ?? _history[id];
+
   Duration get now => _monotonic?.call() ?? _clock.elapsed;
   @override
   String get id => 'console';
@@ -104,8 +117,8 @@ final class ConsoleOwner
         !session.acceptsOutput) {
       throw const OperationFailure(FailureCode.consoleInactive);
     }
-    session.binding.check();
-    session.binding.fence.check(state.versions(session.profileId));
+    session.binding!.check();
+    session.fence.check(state.versions(session.profileId));
   }
 
   ConsoleSessionView _view(_ConsoleSession session) => ConsoleSessionView(
@@ -121,20 +134,53 @@ final class ConsoleOwner
     exitCode: session.exitCode,
     inputOwner: _inputView(session),
   );
-  List<ConsoleSessionView> sessionsFor(String profileId) => [
-    for (final session in _sessions.values)
+  List<ConsoleSessionView> sessionsFor(String profileId) =>
+      _viewsFor(profileId, _allSessions);
+
+  List<ConsoleSessionView> liveSessionsFor(String profileId) =>
+      _viewsFor(profileId, _sessions.values);
+
+  List<ConsoleSessionView> historyFor(String profileId) =>
+      _viewsFor(profileId, _newestHistoryFirst);
+
+  List<ConsoleSessionView> _viewsFor(
+    String profileId,
+    Iterable<_ConsoleSession> records,
+  ) => [
+    for (final session in records)
       if (session.profileId == profileId) _view(session),
   ];
+
+  ConsoleHistoryValue? archivedOutput(
+    String profileId,
+    String sessionId, {
+    String? cursor,
+  }) {
+    final session = _history[sessionId];
+    if (session == null || session.profileId != profileId) return null;
+    try {
+      if (!_hasCurrentContext(session)) return null;
+    } on OperationFailure {
+      return null;
+    }
+    return consoleHistoryPage(
+      actors.ownerEpoch,
+      _view(session),
+      session.engine,
+      cursor: cursor,
+    );
+  }
+
   ConsoleTerminalEngine? engine(String sessionId) =>
-      _sessions[sessionId]?.engine;
+      _session(sessionId)?.engine;
   OperationFailure? inputFailure(String sessionId) =>
-      _sessions[sessionId]?.inputFailure;
-  String? inputOutcome(String sessionId) => _sessions[sessionId]?.inputOutcome;
+      _session(sessionId)?.inputFailure;
+  String? inputOutcome(String sessionId) => _session(sessionId)?.inputOutcome;
   String? selectedSession(String profileId) {
     final selected = _selectedSessions[profileId];
-    if (selected != null && _sessions[selected]?.profileId == profileId)
+    if (selected != null && _session(selected)?.profileId == profileId)
       return selected;
-    for (final session in _sessions.values) {
+    for (final session in _allSessions) {
       if (session.profileId == profileId)
         return _selectedSessions[profileId] = session.id;
     }
@@ -143,7 +189,7 @@ final class ConsoleOwner
   }
 
   void selectSession(String profileId, String? sessionId) {
-    if (sessionId != null && _sessions[sessionId]?.profileId == profileId) {
+    if (sessionId != null && _session(sessionId)?.profileId == profileId) {
       _selectedSessions[profileId] = sessionId;
     }
   }
@@ -153,7 +199,7 @@ final class ConsoleOwner
   }
 
   void setVisible(String sessionId, bool visible) {
-    if (visible)
+    if (visible && _sessions.containsKey(sessionId))
       _visible.add(sessionId);
     else
       _visible.remove(sessionId);
@@ -191,8 +237,9 @@ final class ConsoleOwner
       _sanitizeSessions();
       if (!isCanonicalUuid(profileId))
         throw const OperationFailure(FailureCode.invalidArgument);
-      if (_sessions.length >= 16 ||
-          _sessions.values.where((s) => s.profileId == profileId).length >= 4) {
+      if (_sessions.length >= _globalLimit ||
+          _sessions.values.where((s) => s.profileId == profileId).length >=
+              _perProfileLimit) {
         throw const OperationFailure(FailureCode.resourceExhausted);
       }
       final settings = configuration();
@@ -235,18 +282,24 @@ final class ConsoleOwner
   );
 
   Future<void> _start(_ConsoleSession session) async {
+    if (_retireIfTransportClosed(session)) return;
     try {
       _checkBase(session);
-      _checkCaller(session.creator);
-      final opening = session.binding.open(
+      final creator = session.creator!;
+      _checkCaller(creator);
+      final opening = session.binding!.open(
         path: session.shell.path,
         onData: (bytes) => _output(session, bytes),
         guard: () {
           _checkBase(session);
-          if (session.state == 'opening') _checkCaller(session.creator);
+          if (session.state == 'opening') _checkCaller(session.creator!);
         },
       );
-      session.opening = opening;
+      if (session.state == 'opening') {
+        session.opening = opening;
+      } else {
+        opening.cancel();
+      }
       final channel = await opening.opened;
       if (!identical(_sessions[session.id], session) ||
           session.state != 'opening' ||
@@ -255,7 +308,9 @@ final class ConsoleOwner
         return;
       }
       _checkBase(session);
-      _checkCaller(session.creator);
+      _checkCaller(creator);
+      session.opening = null;
+      session.creator = null;
       session.channel = channel;
       session.state = 'active';
       if (!session.ready.isCompleted) session.ready.complete();
@@ -273,14 +328,16 @@ final class ConsoleOwner
           if (!identical(_sessions[session.id], session) ||
               !session.acceptsOutput)
             return;
+          if (_retireIfChannelAborted(session)) return;
           session.pendingDone = true;
           _release(session);
           _finishOutput(session);
+          _notify();
         }),
       );
       _notify();
     } catch (error) {
-      if (session.state == 'opening')
+      if (session.state == 'opening' && !_retireIfTransportClosed(session))
         _terminate(session, 'error', switch (error) {
           ConsoleOpenFailure(:final code) => code.name,
           TimeoutException() => 'timeout',
@@ -313,7 +370,7 @@ final class ConsoleOwner
 
   void _drainOutput(_ConsoleSession session) {
     session.outputScheduled = false;
-    if (!session.acceptsOutput) return;
+    if (!session.acceptsOutput || _retireIfChannelAborted(session)) return;
     try {
       _checkBase(session);
       var budget = 16384;
@@ -339,16 +396,15 @@ final class ConsoleOwner
 
   void _finishOutput(_ConsoleSession session) {
     if (!session.pendingDone || session.raw.isNotEmpty) return;
+    session.reason = session.channel?.failure;
     try {
       session.engine.finish();
     } catch (_) {
-      session.partial = true;
+      session.reason = 'outputLimit';
     }
-    session.exitCode = session.channel?.exitCode;
-    session.reason = session.channel?.failure;
     session.state = session.reason == null ? 'ended' : 'error';
     session.partial |= session.reason != null;
-    _notify();
+    _retire(session, keepHistory: true, abort: false);
   }
 
   void _cancelInput(_ConsoleSession session) {
@@ -361,11 +417,23 @@ final class ConsoleOwner
     _ConsoleSession session,
     String status,
     String reason, {
-    bool clear = false,
+    bool keepHistory = true,
+    bool notify = true,
   }) {
     session.state = status;
     session.reason = reason;
     session.partial = true;
+    _retire(session, keepHistory: keepHistory, abort: true);
+    if (notify) _notify();
+  }
+
+  void _retire(
+    _ConsoleSession session, {
+    required bool keepHistory,
+    required bool abort,
+  }) {
+    _sessions.remove(session.id);
+    _visible.remove(session.id);
     if (!session.ready.isCompleted)
       session.ready.completeError(const WorkCancelled());
     session.deadline?.call();
@@ -375,24 +443,80 @@ final class ConsoleOwner
     _release(session);
     session.raw.clear();
     session.rawBytes = 0;
-    session.opening?.cancel();
-    session.channel?.abort();
-    if (clear) session.engine.clear();
-    _notify();
+    final opening = session.opening;
+    final channel = session.channel;
+    if (keepHistory) {
+      session.exitCode = channel?.exitCode ?? opening?.exitCode;
+    }
+    session
+      ..opening = null
+      ..channel = null
+      ..binding = null
+      ..creator = null
+      ..pendingResize = null;
+    if (abort) {
+      opening?.cancel();
+      channel?.abort();
+    }
+    if (!keepHistory) {
+      _forget(session);
+      return;
+    }
+    session.engine.freeze();
+    _history[session.id] = session;
+    final forProfile = _history.values.where(
+      (record) => record.profileId == session.profileId,
+    );
+    if (forProfile.length > _perProfileLimit) _forget(forProfile.first);
+    if (_history.length > _globalLimit) _forget(_history.values.first);
+  }
+
+  void _forget(_ConsoleSession session) {
+    _history.remove(session.id);
+    if (_selectedSessions[session.profileId] == session.id) {
+      _selectedSessions.remove(session.profileId);
+    }
+    session.engine
+      ..clear()
+      ..freeze();
+  }
+
+  bool _retireIfChannelAborted(_ConsoleSession session) {
+    if (_retireIfTransportClosed(session)) return true;
+    final failure = session.channel?.failure ?? session.opening?.failure?.name;
+    if (failure != null) {
+      _terminate(session, 'error', failure);
+      return true;
+    }
+    return false;
+  }
+
+  bool _retireIfTransportClosed(_ConsoleSession session) {
+    if (session.binding?.isTransportClosed() != true) return false;
+    _terminate(
+      session,
+      'disconnected',
+      'connectionLost',
+      keepHistory: !_stopped,
+    );
+    return true;
   }
 
   void _invalidated(ConsoleInvalidation event) {
-    for (final session
-        in _sessions.values
-            .where((s) => s.profileId == event.profileId)
-            .toList()) {
+    final records = event.clear ? _allSessions : _sessions.values;
+    final affected = records
+        .where((s) => s.profileId == event.profileId)
+        .toList();
+    for (final session in affected) {
       _terminate(
         session,
         'disconnected',
         event.clear ? 'contextChanged' : 'connectionLost',
-        clear: event.clear,
+        keepHistory: !event.clear && !_stopped,
+        notify: false,
       );
     }
+    if (affected.isNotEmpty) _notify();
   }
 
   void _keyboard(_ConsoleSession session, String text) {
@@ -595,6 +719,9 @@ final class ConsoleOwner
     },
     () {
       final session = _target(profileId, sessionId, generation);
+      if (!_sessions.containsKey(sessionId)) {
+        throw const OperationFailure(FailureCode.consoleInactive);
+      }
       _requireLease(session, caller, leaseToken);
       _release(session);
       _notify();
@@ -612,8 +739,8 @@ final class ConsoleOwner
   void disconnectBinding(ConsoleMcpBinding binding) {
     binding.close();
     for (final session in _sessions.values.toList()) {
-      if (identical(session.creator.binding, binding) &&
-          session.state == 'opening') {
+      if (session.state == 'opening' &&
+          identical(session.creator?.binding, binding)) {
         _terminate(session, 'error', 'cancelled');
       } else if (identical(session.lease?.binding, binding)) {
         _release(session);
@@ -625,8 +752,8 @@ final class ConsoleOwner
   @override
   void invalidateClient(String clientId) {
     for (final session in _sessions.values.toList()) {
-      if (session.creator.binding?.actor.clientId == clientId &&
-          session.state == 'opening') {
+      if (session.state == 'opening' &&
+          session.creator?.binding?.actor.clientId == clientId) {
         _terminate(session, 'error', 'cancelled');
       } else if (session.lease?.binding?.actor.clientId == clientId) {
         _release(session);
@@ -681,15 +808,12 @@ final class ConsoleOwner
     },
     () {
       final session = _target(profileId, sessionId, generation);
-      if (session.active || session.state == 'opening') {
+      if (_sessions.containsKey(sessionId)) {
         _requireLease(session, caller, leaseToken);
         if (!confirmed)
           throw const OperationFailure(FailureCode.invalidArgument);
       }
-      _terminate(session, 'closed', 'closed', clear: true);
-      _sessions.remove(sessionId);
-      _visible.remove(sessionId);
-      _notify();
+      _terminate(session, 'closed', 'closed', keepHistory: false);
       return ConsoleActionValue(
         sessionId: sessionId,
         generation: generation,
@@ -701,7 +825,7 @@ final class ConsoleOwner
   );
   _ConsoleSession _target(String profileId, String sessionId, int generation) {
     _sanitizeSessions();
-    final session = _sessions[sessionId];
+    final session = _session(sessionId);
     if (session == null || session.profileId != profileId)
       throw const OperationFailure(FailureCode.consoleNotFound);
     if (session.generation != generation)
@@ -777,7 +901,7 @@ final class ConsoleOwner
         (outcome) => ConsoleActionValue(
           sessionId: sessionId,
           generation: generation,
-          state: _sessions[sessionId]?.state ?? 'closed',
+          state: _session(sessionId)?.state ?? 'closed',
           status: outcome.status,
           acceptedBytes: outcome.acceptedBytes,
           operationSequence: operationSequence ?? 0,
@@ -845,8 +969,16 @@ final class ConsoleOwner
 
   @override
   Future<void> closeSessions() async {
-    for (final s in _sessions.values.toList())
-      _terminate(s, 'disconnected', 'shutdown', clear: true);
+    for (final s in _allSessions) {
+      _terminate(
+        s,
+        'disconnected',
+        'shutdown',
+        keepHistory: false,
+        notify: false,
+      );
+    }
+    _notify();
   }
 
   @override

@@ -17,7 +17,7 @@ final class ConsoleTerminalEngine {
     void Function(String)? onResponse,
     int maxScrollbackLines = 10000,
     int maxScrollbackBytes = 4194304,
-  }) : terminal = Terminal(maxLines: 10200, onResponse: onResponse) {
+  }) : _terminal = _ConsoleTerminal(onResponse) {
     terminal.mainBuffer
       ..maxScrollbackLines = maxScrollbackLines.clamp(0, 10000)
       ..maxScrollbackBytes = maxScrollbackBytes.clamp(1, 4194304);
@@ -28,10 +28,10 @@ final class ConsoleTerminalEngine {
       allowMalformed: true,
     ).startChunkedConversion(StringConversionSink.from(_DecodedText(_write)));
   }
-  final Terminal terminal;
-  late ByteConversionSink _decoder;
+  final _ConsoleTerminal _terminal;
+  Terminal get terminal => _terminal;
+  ByteConversionSink? _decoder;
   int historyVersion = 1;
-  bool _finished = false;
   bool get truncated => terminal.mainBuffer.truncated;
   bool get isAlt => terminal.isUsingAltBuffer;
   int get cursorX => terminal.buffer.cursorX;
@@ -55,31 +55,43 @@ final class ConsoleTerminalEngine {
 
   void _write(String text) {
     if (text.isEmpty) return;
-    terminal.write(text);
-    historyVersion++;
+    try {
+      terminal.write(text);
+    } finally {
+      // The parser may have changed rows before rejecting a suffix.
+      historyVersion++;
+    }
   }
 
   void feed(Uint8List bytes) {
-    if (_finished) return;
+    final decoder = _decoder;
+    if (decoder == null) return;
     if (bytes.length > 1048576) throw const TerminalLimitException();
     for (var i = 0; i < bytes.length; i += 16384) {
-      _decoder.add(
+      decoder.add(
         Uint8List.sublistView(bytes, i, (i + 16384).clamp(0, bytes.length)),
       );
     }
   }
 
   void finish() {
-    if (_finished) return;
-    _finished = true;
-    _decoder.close();
+    final decoder = _decoder;
+    _decoder = null;
+    decoder?.close();
+  }
+
+  void freeze() {
+    _terminal.frozen = true;
+    _decoder = null;
+    terminal
+      ..onOutput = null
+      ..onResponse = null;
   }
 
   void clear() {
     // Discard the in-memory decoder: closing it executes pending remote bytes.
     // A trust reset must never interpret more input or fail before clearing.
     terminal.clearOutput();
-    _finished = false;
     _decoder = const Utf8Decoder(
       allowMalformed: true,
     ).startChunkedConversion(StringConversionSink.from(_DecodedText(_write)));
@@ -87,6 +99,7 @@ final class ConsoleTerminalEngine {
   }
 
   void resize(int columns, int rows) {
+    if (_terminal.frozen) return;
     terminal.resize(columns.clamp(2, 512), rows.clamp(1, 200));
     historyVersion++;
     terminal.notifyListeners();
@@ -142,6 +155,31 @@ final class ConsoleTerminalEngine {
     };
     terminal.keyInput(key);
   });
+}
+
+/// An already attached renderer may still hold this model when it is archived.
+final class _ConsoleTerminal extends Terminal {
+  _ConsoleTerminal(void Function(String)? onResponse)
+    : super(maxLines: 10200, onResponse: onResponse);
+
+  bool frozen = false;
+
+  @override
+  void write(String data) {
+    if (!frozen) super.write(data);
+  }
+
+  @override
+  void resize(
+    int newWidth,
+    int newHeight, [
+    int? pixelWidth,
+    int? pixelHeight,
+  ]) {
+    if (!frozen) {
+      super.resize(newWidth, newHeight, pixelWidth, pixelHeight);
+    }
+  }
 }
 
 final class _DecodedText implements Sink<String> {

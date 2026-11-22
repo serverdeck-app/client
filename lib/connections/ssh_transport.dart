@@ -932,6 +932,16 @@ final class _ConsoleOpening implements ConsoleOpening {
   const _ConsoleOpening(this.operation);
   final SSHOwnedPtyOperation operation;
   @override
+  int? get exitCode => operation.exitCode;
+  @override
+  ConsoleOpenFailureCode? get failure {
+    final reason = operation.failure;
+    return reason == null
+        ? null
+        : _consoleOpenFailure(SSHOwnedPtyError(reason)).code;
+  }
+
+  @override
   Future<ConsoleChannel> get opened => operation.opened.then(
     _ConsoleChannel.new,
     onError: (Object error, StackTrace stack) =>

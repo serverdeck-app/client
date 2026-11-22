@@ -157,29 +157,31 @@ extension _ConsoleAccess on ConsoleOwner {
     );
   }
 
+  bool _hasCurrentContext(_ConsoleSession session) {
+    final current = state.versions(session.profileId);
+    if (current == null || current.quarantined) return false;
+    final fence = session.fence;
+    return (fence.endpointId == null ||
+            fence.endpointId == current.endpointId) &&
+        (fence.credentialRevision == null ||
+            fence.credentialRevision == current.credentialRevision) &&
+        (fence.connectionRevision == null ||
+            fence.connectionRevision == current.connectionRevision) &&
+        (fence.trustRevision == null ||
+            fence.trustRevision == current.trustRevision);
+  }
+
   void _sanitizeSessions() {
-    for (final session in _sessions.values.toList()) {
-      final current = state.versions(session.profileId);
-      if (current == null) {
-        _terminate(session, 'closed', 'contextChanged', clear: true);
-        _sessions.remove(session.id);
-        _visible.remove(session.id);
-        _selectedSessions.remove(session.profileId);
-        continue;
-      }
-      final fence = session.binding.fence;
-      if ((fence.endpointId != null &&
-              fence.endpointId != current.endpointId) ||
-          (fence.credentialRevision != null &&
-              fence.credentialRevision != current.credentialRevision) ||
-          (fence.connectionRevision != null &&
-              fence.connectionRevision != current.connectionRevision) ||
-          (fence.trustRevision != null &&
-              fence.trustRevision != current.trustRevision) ||
-          current.quarantined) {
-        if (session.reason != 'contextChanged')
-          _terminate(session, 'disconnected', 'contextChanged', clear: true);
-      }
+    final stale = _allSessions.where((s) => !_hasCurrentContext(s)).toList();
+    for (final session in stale) {
+      _terminate(
+        session,
+        'closed',
+        'contextChanged',
+        keepHistory: false,
+        notify: false,
+      );
     }
+    if (stale.isNotEmpty) _notify();
   }
 }

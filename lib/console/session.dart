@@ -4,17 +4,20 @@ final class _ConsoleSession {
   _ConsoleSession({
     required this.id,
     required this.profileId,
-    required this.binding,
+    required ConsoleConnectionBinding binding,
     required this.shell,
-    required this.creator,
+    required ConsoleCaller creator,
     required this.engine,
-  }) {
+  }) : binding = binding,
+       creator = creator,
+       fence = binding.fence {
     ready.future.ignore();
   }
   final String id, profileId;
-  final ConsoleConnectionBinding binding;
+  ConsoleConnectionBinding? binding;
+  final VersionFence fence;
   final ConsoleShellProfile shell;
-  final ConsoleCaller creator;
+  ConsoleCaller? creator;
   final int generation = 1;
   final ConsoleTerminalEngine engine;
   String state = 'opening';

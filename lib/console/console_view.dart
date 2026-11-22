@@ -214,9 +214,38 @@ class _ConsoleViewState extends State<ConsoleView> {
     );
   }
 
+  Widget _sessionPicker(
+    List<ConsoleSessionView> sessions, {
+    required String label,
+    required String keyPrefix,
+  }) {
+    final selection = sessions.any((s) => s.sessionId == _selected)
+        ? _selected
+        : null;
+    return DropdownButtonFormField<String>(
+      key: ValueKey('$keyPrefix-$selection'),
+      initialValue: selection,
+      decoration: InputDecoration(labelText: label),
+      items: [
+        for (var i = 0; i < sessions.length; i++)
+          DropdownMenuItem(
+            value: sessions[i].sessionId,
+            child: Text('Консоль ${i + 1} · ${sessions[i].shellName}'),
+          ),
+      ],
+      onChanged: (value) => setState(() {
+        _hide();
+        _selected = value;
+        widget.owner.selectSession(widget.profileId, value);
+      }),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final sessions = widget.owner.sessionsFor(widget.profileId);
+    final live = widget.owner.liveSessionsFor(widget.profileId);
+    final history = widget.owner.historyFor(widget.profileId);
+    final sessions = [...live, ...history];
     if (!sessions.any((s) => s.sessionId == _selected)) {
       _hide();
       _selected = widget.owner.selectedSession(widget.profileId);
@@ -225,7 +254,10 @@ class _ConsoleViewState extends State<ConsoleView> {
     for (final session in sessions) {
       if (session.sessionId == _selected) selected = session;
     }
-    if (selected != null) widget.owner.setVisible(selected.sessionId, true);
+    final archived = history.any((session) => session.sessionId == _selected);
+    if (selected != null && !archived) {
+      widget.owner.setVisible(selected.sessionId, true);
+    }
     ConsoleConfiguration? config;
     try {
       config = widget.owner.configuration();
@@ -276,29 +308,21 @@ class _ConsoleViewState extends State<ConsoleView> {
                       ),
                       selectOpened: true,
                     ),
-              child: Text(
-                sessions.isEmpty ? 'Открыть консоль' : 'Новая консоль',
-              ),
+              child: Text(live.isEmpty ? 'Открыть консоль' : 'Новая консоль'),
             ),
           ],
         ),
-        if (sessions.isNotEmpty)
-          DropdownButtonFormField<String>(
-            key: ValueKey('console-session-$_selected'),
-            initialValue: _selected,
-            decoration: const InputDecoration(labelText: 'Сессия консоли'),
-            items: [
-              for (var i = 0; i < sessions.length; i++)
-                DropdownMenuItem(
-                  value: sessions[i].sessionId,
-                  child: Text('Консоль ${i + 1} · ${sessions[i].shellName}'),
-                ),
-            ],
-            onChanged: (value) => setState(() {
-              _hide();
-              _selected = value;
-              widget.owner.selectSession(widget.profileId, value);
-            }),
+        if (live.isNotEmpty)
+          _sessionPicker(
+            live,
+            label: 'Сессия консоли',
+            keyPrefix: 'console-session',
+          ),
+        if (history.isNotEmpty)
+          _sessionPicker(
+            history,
+            label: 'История консолей',
+            keyPrefix: 'console-history',
           ),
         if (selected != null) ...[
           if (widget.owner.inputFailure(selected.sessionId) case final failure?)
@@ -329,58 +353,68 @@ class _ConsoleViewState extends State<ConsoleView> {
             Text('Код выхода оболочки: ${selected.exitCode}'),
           DeckButton(
             onPressed: _busy ? null : () => _close(selected!),
-            child: const Text('Закрыть консоль'),
+            child: Text(archived ? 'Удалить запись' : 'Закрыть консоль'),
           ),
-          if (selected.inputOwner.kind == 'mcp')
-            Text(
-              'Ввод: MCP · ${selected.inputOwner.name ?? selected.inputOwner.clientId}',
-            ),
-          DeckButton(
-            onPressed: _busy || !['active', 'opening'].contains(selected.state)
-                ? null
-                : () => _run(
-                    () => widget.owner.acquireConsole(
-                      _caller,
-                      widget.profileId,
-                      selected!.sessionId,
-                      generation: selected.generation,
-                    ),
-                  ),
-            child: const Text('Взять управление'),
-          ),
-          if (selected.inputOwner.kind == 'ui')
+          if (archived)
+            _ConsoleHistoryOutput(
+              key: ValueKey((widget.owner, selected.sessionId)),
+              owner: widget.owner,
+              profileId: widget.profileId,
+              sessionId: selected.sessionId,
+            )
+          else ...[
+            if (selected.inputOwner.kind == 'mcp')
+              Text(
+                'Ввод: MCP · ${selected.inputOwner.name ?? selected.inputOwner.clientId}',
+              ),
             DeckButton(
-              onPressed: _busy
+              onPressed:
+                  _busy || !['active', 'opening'].contains(selected.state)
                   ? null
                   : () => _run(
-                      () => widget.owner.releaseConsole(
+                      () => widget.owner.acquireConsole(
                         _caller,
                         widget.profileId,
                         selected!.sessionId,
                         generation: selected.generation,
-                        leaseToken: widget.owner.uiLeaseToken(
-                          selected.sessionId,
-                        )!,
                       ),
                     ),
-              child: const Text('Передать управление MCP'),
+              child: const Text('Взять управление'),
             ),
-          SizedBox(
-            height: 360,
-            child: DeckTerminal(
-              key: ValueKey('terminal-${selected.sessionId}'),
-              terminal: widget.owner.engine(selected.sessionId)!.terminal,
-              readOnly:
-                  selected.state != 'active' ||
-                  selected.inputOwner.kind == 'mcp',
-              onPaste: (text) => _paste(selected!, text),
-              onResize: (columns, rows) => widget.owner.resizeConsole(
-                selected!.sessionId,
-                columns,
-                rows,
+            if (selected.inputOwner.kind == 'ui')
+              DeckButton(
+                onPressed: _busy
+                    ? null
+                    : () => _run(
+                        () => widget.owner.releaseConsole(
+                          _caller,
+                          widget.profileId,
+                          selected!.sessionId,
+                          generation: selected.generation,
+                          leaseToken: widget.owner.uiLeaseToken(
+                            selected.sessionId,
+                          )!,
+                        ),
+                      ),
+                child: const Text('Передать управление MCP'),
+              ),
+            SizedBox(
+              height: 360,
+              child: DeckTerminal(
+                key: ValueKey('terminal-${selected.sessionId}'),
+                terminal: widget.owner.engine(selected.sessionId)!.terminal,
+                readOnly:
+                    selected.state != 'active' ||
+                    selected.inputOwner.kind == 'mcp',
+                onPaste: (text) => _paste(selected!, text),
+                onResize: (columns, rows) => widget.owner.resizeConsole(
+                  selected!.sessionId,
+                  columns,
+                  rows,
+                ),
               ),
             ),
-          ),
+          ],
         ] else
           const DeckNotice(message: 'Консоль ещё не открыта.'),
       ],
@@ -420,5 +454,68 @@ class _ConsoleViewState extends State<ConsoleView> {
     _closeRoutes();
     widget.owner.removeListener(_changed);
     super.dispose();
+  }
+}
+
+class _ConsoleHistoryOutput extends StatefulWidget {
+  const _ConsoleHistoryOutput({
+    super.key,
+    required this.owner,
+    required this.profileId,
+    required this.sessionId,
+  });
+
+  final ConsoleOwner owner;
+  final String profileId, sessionId;
+
+  @override
+  State<_ConsoleHistoryOutput> createState() => _ConsoleHistoryOutputState();
+}
+
+class _ConsoleHistoryOutputState extends State<_ConsoleHistoryOutput> {
+  final _positions = <String?>[null];
+
+  @override
+  Widget build(BuildContext context) {
+    final page = widget.owner.archivedOutput(
+      widget.profileId,
+      widget.sessionId,
+      cursor: _positions.last,
+    );
+    if (page == null) return const SizedBox.shrink();
+    final next = page.nextCursor;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (page.truncated)
+          const DeckNotice(
+            message: 'Начало вывода было усечено.',
+            tone: DeckTone.warning,
+          ),
+        DeckCode(
+          key: ValueKey(_positions.last),
+          label: 'Сохранённый вывод',
+          text: page.rows.map((row) => row.text).join('\n'),
+          maxHeight: 360,
+        ),
+        if (_positions.length > 1 || next != null)
+          DeckActions(
+            children: [
+              DeckButton(
+                onPressed: _positions.length == 1
+                    ? null
+                    : () => setState(() => _positions.removeLast()),
+                child: const Text('Назад'),
+              ),
+              DeckButton(
+                onPressed: next == null
+                    ? null
+                    : () => setState(() => _positions.add(next)),
+                child: const Text('Дальше'),
+              ),
+            ],
+          ),
+      ],
+    );
   }
 }

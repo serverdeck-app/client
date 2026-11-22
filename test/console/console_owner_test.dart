@@ -79,18 +79,15 @@ void main() {
       );
     },
   );
-  test(
-    'four per-server reservations include pending and completed shells',
-    () async {
-      final caller = ConsoleCaller.ui(h.actors.ui);
-      port.autoOpen = false;
-      for (var i = 0; i < 4; i++)
-        expect((await owner.openConsole(caller, profile)).ok, isTrue);
-      final over = await owner.openConsole(caller, profile);
-      expect(over.error?.code, FailureCode.resourceExhausted);
-      expect(owner.sessionsFor(profile).length, 4);
-    },
-  );
+  test('four per-profile reservations include pending shells', () async {
+    final caller = ConsoleCaller.ui(h.actors.ui);
+    port.autoOpen = false;
+    for (var i = 0; i < 4; i++)
+      expect((await owner.openConsole(caller, profile)).ok, isTrue);
+    final over = await owner.openConsole(caller, profile);
+    expect(over.error?.code, FailureCode.resourceExhausted);
+    expect(owner.sessionsFor(profile).length, 4);
+  });
   test(
     'late open after cancellation cannot revive disconnected console',
     () async {
@@ -99,8 +96,8 @@ void main() {
       await owner.openConsole(caller, profile);
       await featureTurns();
       port.connected = false;
-      port.events.add(ConsoleInvalidation(profile, clear: false));
       port.openings.single.complete();
+      port.events.add(ConsoleInvalidation(profile, clear: false));
       await featureTurns();
       expect(owner.sessionsFor(profile).single.state, 'disconnected');
       expect(port.openings.single.cancelled, isTrue);

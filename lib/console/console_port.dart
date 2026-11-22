@@ -24,12 +24,14 @@ final class ConsoleConnectionBinding {
     required this.sshSessionId,
     required this.fence,
     required this.check,
+    required this.isTransportClosed,
     required this.open,
   });
   final String profileId, sshSessionId;
   final int connectionRevision;
   final VersionFence fence;
   final void Function() check;
+  final bool Function() isTransportClosed;
   final ConsoleOpening Function({
     String? path,
     required void Function(Uint8List) onData,
@@ -40,6 +42,8 @@ final class ConsoleConnectionBinding {
 
 abstract interface class ConsoleOpening {
   Future<ConsoleChannel> get opened;
+  int? get exitCode;
+  ConsoleOpenFailureCode? get failure;
   void cancel();
 }
 

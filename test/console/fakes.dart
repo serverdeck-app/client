@@ -38,6 +38,7 @@ final class FakeConsolePort implements ConsoleConnectionPort {
         connectionRevision: v.connectionRevision,
       ),
       check: check,
+      isTransportClosed: () => !connected,
       open: ({String? path, required onData, required guard}) {
         guard();
         final result = FakeConsoleOpening(
@@ -64,6 +65,10 @@ final class FakeConsoleOpening implements ConsoleOpening {
 
   @override
   Future<ConsoleChannel> get opened => ready.future;
+  @override
+  int? get exitCode => channel.exitCode;
+  @override
+  ConsoleOpenFailureCode? failure;
   @override
   void cancel() {
     cancelled = true;

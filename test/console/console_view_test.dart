@@ -1,7 +1,10 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:serverdeck/console/console_models.dart';
 import 'package:serverdeck/console/console_owner.dart';
+import 'package:serverdeck/console/console_port.dart';
 import 'package:serverdeck/console/console_view.dart';
 import 'package:serverdeck/theme/brand_theme.dart';
 import 'package:serverdeck/ui/deck_components.dart';
@@ -241,6 +244,85 @@ void main() {
       expect(port.connected, isTrue);
     },
   );
+  testWidgets('disconnected history is separate, pageable and removable', (
+    tester,
+  ) async {
+    final caller = ConsoleCaller.ui(owner.actors.ui);
+    late String oldId;
+    await tester.runAsync(() async {
+      final opened = await owner.openConsole(caller, profile);
+      oldId = (opened.value!.console as ConsoleActionValue).sessionId;
+      await Future<void>.delayed(Duration.zero);
+      port.openings.single.channel.emit(
+        utf8.encode([for (var i = 0; i < 1050; i++) 'saved-$i'].join('\r\n')),
+      );
+      await Future<void>.delayed(Duration.zero);
+      port.connected = false;
+      port.events.add(ConsoleInvalidation(profile, clear: false));
+    });
+
+    Widget host() => MaterialApp(
+      theme: BrandTheme.dark,
+      home: Scaffold(
+        body: SingleChildScrollView(
+          child: ConsoleView(
+            owner: owner,
+            profileId: profile,
+            connectionRevision: 1,
+            serverLabel: 'Server A',
+            username: 'root',
+          ),
+        ),
+      ),
+    );
+    await tester.pumpWidget(host());
+    expect(find.text('История консолей'), findsOneWidget);
+    expect(find.text('Сессия консоли'), findsNothing);
+    expect(find.byType(DeckTerminal), findsNothing);
+    expect(find.text('Взять управление'), findsNothing);
+    DeckCode archive() => tester.widget<DeckCode>(find.byType(DeckCode));
+    DeckButton button(String text) => tester.widget<DeckButton>(
+      find
+          .ancestor(of: find.text(text), matching: find.byType(DeckButton))
+          .first,
+    );
+    final version = owner.engine(oldId)!.historyVersion;
+    expect(button('Открыть консоль').onPressed, isNull);
+    expect(archive().text, contains('saved-0'));
+    expect(archive().text, isNot(contains('saved-1049')));
+    button('Дальше').onPressed!();
+    await tester.pump();
+    expect(archive().text, contains('saved-1049'));
+    button('Назад').onPressed!();
+    await tester.pump();
+    expect(archive().text, contains('saved-0'));
+    expect(owner.engine(oldId)!.historyVersion, version);
+
+    port.connected = true;
+    await tester.pumpWidget(host());
+    await tester.runAsync(
+      () async => await button('Открыть консоль').onPressed!(),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Сессия консоли'), findsOneWidget);
+    expect(find.text('История консолей'), findsOneWidget);
+    expect(find.byType(DeckTerminal), findsOneWidget);
+    final history = tester.widget<DropdownButtonFormField<String>>(
+      find.byKey(const ValueKey('console-history-null')),
+    );
+    history.onChanged!(oldId);
+    await tester.pumpAndSettle();
+    expect(archive().text, contains('saved-0'));
+    await tester.runAsync(
+      () async => await button('Удалить запись').onPressed!(),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('История консолей'), findsNothing);
+    expect(find.byType(DeckTerminal), findsOneWidget);
+    expect(owner.historyFor(profile), isEmpty);
+    expect(port.openings.last.channel.closed, false);
+  });
+
   testWidgets('platform multiline cancel and changed server never send input', (
     tester,
   ) async {

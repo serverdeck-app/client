@@ -251,7 +251,7 @@ final class ConnectionOwner
     }
 
     check();
-    final transport = e.transport;
+    final transport = e.transport!;
     if (transport is! ConsoleSshConnection) {
       throw const OperationFailure(FailureCode.unsupportedServer);
     }
@@ -261,6 +261,7 @@ final class ConnectionOwner
       sshSessionId: e.sessionId!,
       fence: e.fence,
       check: check,
+      isTransportClosed: () => transport.isClosed,
       open: ({String? path, required onData, required guard}) {
         check();
         return (transport as ConsoleSshConnection).openConsole(

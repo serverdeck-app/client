@@ -101,9 +101,9 @@ void main() {
   }
 
   Future<Map<String, dynamic>> open() async {
-    final value =
-        (await call('open', {'profileId': profile}, mutate: true))['value']
-            as Map;
+    final response = await call('open', {'profileId': profile}, mutate: true);
+    expect(response['ok'], true, reason: jsonEncode(response));
+    final value = response['value'] as Map;
     await featureTurns();
     return {
       'profileId': profile,
@@ -112,6 +112,80 @@ void main() {
       'leaseToken': value['leaseToken'],
     };
   }
+
+  test('router lists four live and four archived consoles and authorizes archived reads', () async {
+    final previous = [for (var i = 0; i < 4; i++) await open()];
+    final target = previous.first;
+    final readTarget = {...target}..remove('leaseToken');
+    port.openings.first.channel.emit(utf8.encode('first row\r\nsaved output'));
+    await featureTurns();
+    final before = (await call('read', {...readTarget, 'limit': 1}))['value'];
+    final cursor = before['nextCursor'] as String;
+
+    port.connected = false;
+    port.events.add(ConsoleInvalidation(profile, clear: false));
+    port.connected = true;
+    final live = [for (var i = 0; i < 4; i++) await open()];
+    final listed =
+        (await call('list', {'profileId': profile}))['value']['sessions']
+            as List;
+    expect(listed.map((entry) => entry['sessionId']), [
+      ...live.map((entry) => entry['sessionId']),
+      ...previous.reversed.map((entry) => entry['sessionId']),
+    ]);
+    expect(
+      listed.take(4).map((entry) => entry['state']),
+      everyElement('active'),
+    );
+    expect(
+      listed.skip(4).map((entry) => entry['state']),
+      everyElement('disconnected'),
+    );
+    expect(
+      listed.skip(4).map((entry) => entry['inputOwner']['kind']),
+      everyElement('free'),
+    );
+    final page = (await call('read', {
+      ...readTarget,
+      'cursor': cursor,
+    }))['value'];
+    expect(page['historyGap'], false);
+    expect(page['historyVersion'], before['historyVersion']);
+    expect(jsonEncode(page['rows']), contains('saved output'));
+
+    for (final (action, payload) in [
+      ('acquire', readTarget),
+      ('release', target),
+      ('write', {...target, 'text': 'no input'}),
+    ]) {
+      final rejected = await call(action, payload, mutate: true);
+      expect(rejected['error']['code'], 'CONSOLE_INACTIVE');
+    }
+    expect(port.openings.first.channel.writes, isEmpty);
+
+    final closed = await call('close', readTarget, mutate: true);
+    expect(closed['value']['state'], 'closed');
+    final replay = await call('close', {
+      ...readTarget,
+      'ownerEpoch': h.actors.ownerEpoch,
+      'operationSequence': sequence,
+    });
+    expect(replay['value']['replayed'], true);
+    expect(
+      (await call('read', readTarget))['error']['code'],
+      'CONSOLE_NOT_FOUND',
+    );
+    expect(port.openings.skip(4).every((o) => !o.channel.closed), true);
+
+    await h.grants.revoke(h.actors.ui, client, confirmed: true);
+    final denied = await session.handle(
+      rpc(++request, 'tools/call', {
+        'name': 'console.read',
+        'arguments': {...previous.last}..remove('leaseToken'),
+      }),
+    );
+    expect(denied!['error'], isNotNull);
+  });
 
   test('router reads the same visible engine and writes corrections on one channel', () async {
     expect((await call('profiles', {}))['ok'], true);
