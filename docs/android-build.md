@@ -57,10 +57,10 @@ installer/catalog/signing follow their separate release contract.
 
 ## External signing
 
-Published releases from0.3.9 use the separate tag-triggered
+Published releases from0.3.10 use the separate tag-triggered
 `.github/workflows/android-release.yml`. It runs `tools/build-android-release.ps1`,
 pins the public signing certificate SHA256 and uses versionCode from
-`release/android-version-code.txt` (3009 for0.3.9; increase for future Android releases).
+`release/android-version-code.txt` (3010 for0.3.10; increase for future Android releases).
 The permanent keystore/password are GitHub Actions secrets, never repository files.
 APK and its SHA256 sidecar are attached to the matching published Windows release;
 existing assets are not replaced. The Windows workflow is unchanged.
