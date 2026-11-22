@@ -50,7 +50,6 @@ class DesktopWorkspace implements RuntimeStore, RuntimeCapability {
   bool _stopped = false;
   bool Function() isRunning = () => false;
   FeatureRuntime? features;
-  bool monitoringAutoAllowed = false;
   Future<void>? _opening;
   @override
   String get id => 'workspace-features';
@@ -62,7 +61,6 @@ class DesktopWorkspace implements RuntimeStore, RuntimeCapability {
   Future<void> _open() async {
     if (_store == null) {
       final context = await platform.initialize();
-      monitoringAutoAllowed = await platform.beginMonitoringRun();
       _store = WorkspaceStore(
         dataRoot: context.dataRoot,
         libraryPath: '${context.runtimeRoot}\\libisar.dll',
@@ -90,7 +88,6 @@ class DesktopWorkspace implements RuntimeStore, RuntimeCapability {
           repository: repository,
           signer: ReceiptSigner(key),
           isRunning: isRunning,
-          monitoringAutoAllowed: monitoringAutoAllowed,
         );
         final clock = Stopwatch()..start();
         features!.configureSync(

@@ -11,6 +11,16 @@ struct RegistrationValues {
   std::filesystem::path shortcut, recoveryShortcut, application, setup, recovery;
 };
 RegistrationValues ProjectRegistration(const Paths& paths, const Installation& record);
+struct StartupValue {
+  DWORD type;
+  std::wstring command;
+  bool operator==(const StartupValue& rhs) const { return type == rhs.type && command == rhs.command; }
+  bool operator!=(const StartupValue& rhs) const { return !(*this == rhs); }
+};
+// These native adapter entry points also accept a temporary key in unit fixtures.
+std::optional<StartupValue> ReadStartupValue(const wchar_t* path, const wchar_t* name);
+void ChangeStartupValue(const wchar_t* path, const wchar_t* name, const StartupValue& expected, bool remove,
+                        const std::function<void()>& beforeWrite = {});
 struct RegistryPort {
   virtual ~RegistryPort() = default;
   virtual bool Exists() = 0;
@@ -20,6 +30,9 @@ struct RegistryPort {
   virtual void SetDword(const std::wstring& name, DWORD value) = 0;
   virtual void Flush() = 0;
   virtual void Remove() = 0;
+  virtual std::optional<StartupValue> Startup() = 0;
+  virtual void EnsureStartup(const StartupValue& value) = 0;
+  virtual void RemoveStartup(const StartupValue& value) = 0;
 };
 struct ShortcutPort {
   virtual ~ShortcutPort() = default;
@@ -35,6 +48,10 @@ class WindowsRegistration final : public Registration {
   void SetRecoveryLink() override;
   void Set(const Installation& record) override;
   bool Matches(const Installation& record) override;
+  void CheckStartup() override;
+  void SetStartup() override;
+  bool StartupMatches() override;
+  void RemoveStartup() override;
   void Remove() override;
   void RemoveRecoveryLink() override;
   void SetRemovalRetry(const Installation& record, const std::filesystem::path& markedHelper);

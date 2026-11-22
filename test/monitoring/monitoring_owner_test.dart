@@ -211,24 +211,6 @@ void main() {
     },
   );
   test(
-    'startup gate needs explicit start even when a manual SSH session exists',
-    () async {
-      final h = MonitoringHarness(autoAllowed: false);
-      addTearDown(h.dispose);
-      h.add(1);
-      h.add(2, connected: true);
-      h.owner.setActive(true);
-      await settle();
-      expect(h.owner.startupBlocked, isTrue);
-      expect(h.port.attempts, isEmpty);
-      expect(h.port.collected, isEmpty);
-      h.owner.startExplicitly();
-      await settle();
-      expect(h.port.admitted, [mid(1)]);
-      expect(h.port.collected, [mid(2)]);
-    },
-  );
-  test(
     'source list failure uses fixed reason and never launches a connection',
     () async {
       final h = MonitoringHarness();

@@ -141,7 +141,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, wchar_t*, int) {
     } catch (...) { existing = L"\nСостояние установки будет проверено перед изменениями."; }
     const auto message = repair ? std::wstring(L"Восстановить файлы и регистрацию ServerDeck? Пользовательские данные сохраняются.") :
       L"Установить ServerDeck " + sd::Wide(package.version.text) + L" для текущего пользователя?\n\n" + paths.install.wstring() +
-      existing + L"\n\nБудут созданы ярлыки программы и восстановления в меню «Пуск» и запись удаления. Данные пользователя сохраняются.";
+      existing + L"\n\nБудут созданы ярлыки в меню «Пуск», запись удаления и запись автозапуска текущего пользователя. Данные пользователя сохраняются.";
     if (MessageBoxW(nullptr, message.c_str(), L"ServerDeck — установка", MB_OKCANCEL | MB_ICONQUESTION) != IDOK) return 0;
     for (;;) {
       try {

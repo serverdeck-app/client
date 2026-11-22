@@ -71,6 +71,10 @@ struct Registration : sd::install::Registration {
   std::optional<sd::install::Installation> record;
   void CheckOwnership() override {}
   void SetRecoveryLink() override {}
+  void CheckStartup() override {}
+  void SetStartup() override {}
+  bool StartupMatches() override { return true; }
+  void RemoveStartup() override {}
   void Set(const sd::install::Installation& value) override { record = value; }
   bool Matches(const sd::install::Installation& value) override {
     return record && record->sid == value.sid && record->version == value.version && record->app == value.app && record->setup == value.setup;

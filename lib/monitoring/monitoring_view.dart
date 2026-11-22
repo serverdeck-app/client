@@ -61,7 +61,7 @@ class MonitoringHistoryPanel extends StatelessWidget {
   }
 }
 
-/// C02/C11 global recovery controls; no credentials or remote errors in this view.
+/// C11 notice for failures to refresh the server list.
 class MonitoringControls extends StatelessWidget {
   const MonitoringControls({super.key, required this.owner});
   final MonitoringOwner owner;
@@ -72,18 +72,6 @@ class MonitoringControls extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (owner.startupBlocked)
-          DeckNotice(
-            title: 'Мониторинг ожидает запуска',
-            message: 'Предыдущий запуск не завершился штатно. Автоматические подключения остановлены.',
-            nextStep: 'Начните мониторинг, когда будете готовы подключиться к сохранённым серверам.',
-            actions: [
-              DeckButton(
-                onPressed: owner.startExplicitly,
-                child: const Text('Начать мониторинг'),
-              ),
-            ],
-          ),
         if (owner.error != null)
           const DeckNotice(
             title: 'Мониторинг временно недоступен',
@@ -390,7 +378,7 @@ String _connectionLabel(ConnectionState state) => switch (state) {
   MonitoringReason.stopped => (
     'Мониторинг остановлен',
     'Автоматический сбор сейчас не выполняется.',
-    'Если доступен явный запуск, нажмите «Начать мониторинг».',
+    'Сбор возобновится при следующем запуске приложения.',
     DeckTone.neutral,
   ),
 };

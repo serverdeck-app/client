@@ -213,18 +213,14 @@ final class MonitoringPort implements MonitoringConnectionPort {
 }
 
 final class MonitoringHarness {
-  MonitoringHarness({
-    bool autoAllowed = true,
-    MemoryHistoryStore? historyStore,
-    String? ownerEpoch,
-  }) : historyStore = historyStore ?? MemoryHistoryStore(),
-       actors = ActorAuthority(ownerEpoch ?? mid(900)) {
+  MonitoringHarness({MemoryHistoryStore? historyStore, String? ownerEpoch})
+    : historyStore = historyStore ?? MemoryHistoryStore(),
+      actors = ActorAuthority(ownerEpoch ?? mid(900)) {
     owner = MonitoringOwner(
       historyStore: this.historyStore,
       operations: operations,
       actor: actors.ui,
       connections: port,
-      startupAutoAllowed: autoAllowed,
       isSyncAutoBlocked: (id) {
         if (failSyncPolicy) throw StateError('synthetic policy read failure');
         return syncBlocked.contains(id);

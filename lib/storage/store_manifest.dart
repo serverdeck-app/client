@@ -81,8 +81,8 @@ Future<void> rejectLinks(String path) async {
   }
 }
 
-// Native monitoring publishes this bounded run marker before database startup.
-// It is not an unpublished database, and storage must leave its bytes intact.
+// Older Windows versions may have left this bounded run marker in the data
+// directory. Storage recognizes its original bytes and leaves it intact.
 Future<bool> _isMonitoringRunMarker(FileSystemEntity entry) async {
   if (entry is! File ||
       entry.uri.pathSegments.last != 'monitoring-run-v1.json') {

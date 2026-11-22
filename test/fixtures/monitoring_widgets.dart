@@ -79,8 +79,7 @@ final class MonitoringProfileOperations extends Fake implements AppOperations {
 }
 
 final class MonitoringWidgetHarness {
-  MonitoringWidgetHarness({bool autoAllowed = true})
-    : h = MonitoringHarness(autoAllowed: autoAllowed) {
+  MonitoringWidgetHarness() : h = MonitoringHarness() {
     operations = MonitoringProfileOperations(h);
     controller = ProfileController(
       operations: operations,

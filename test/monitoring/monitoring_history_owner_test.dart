@@ -26,7 +26,6 @@ void main() {
     expect(HistoryCodec.decode(store.values[(mid(1), 1)]!), hasLength(720));
     final restored = MonitoringHarness(
       historyStore: store,
-      autoAllowed: false,
       ownerEpoch: mid(901),
     );
     addTearDown(restored.dispose);
@@ -43,10 +42,8 @@ void main() {
           .every((r) => r.percent == null),
       isTrue,
     );
-    expect(restored.port.attempts, isEmpty);
+    expect(restored.port.admitted, [mid(1)]);
     expect(restored.port.collected, isEmpty);
-    expect(restored.owner.startupBlocked, isTrue);
-    restored.owner.startExplicitly();
     restored.port.connected(mid(1));
     restored.port.emit();
     await settle();

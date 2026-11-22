@@ -10,6 +10,10 @@ struct Registration {
   virtual void SetRecoveryLink() = 0;
   virtual void Set(const Installation& record) = 0;
   virtual bool Matches(const Installation& record) = 0;
+  virtual void CheckStartup() = 0;
+  virtual void SetStartup() = 0;
+  virtual bool StartupMatches() = 0;
+  virtual void RemoveStartup() = 0;
   virtual void Remove() = 0;
   virtual void RemoveRecoveryLink() = 0;
 };
@@ -33,7 +37,7 @@ class Executor {
   void Point(const char* stage) const;
   void CheckSid(const Installation& record) const;
   bool Matches(const std::wstring& path, const Identity& identity);
-  bool Committed(const Installation& record);
+  bool Committed(const Installation& record, const std::string& transaction = {});
   void Commit(const Installation& record, const std::string& id);
   void CleanupTransaction();
   void PrepareRecovery(const std::optional<Installation>& previous, const Package& package, const Installation& target);

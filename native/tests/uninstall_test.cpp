@@ -11,9 +11,15 @@ namespace {
 void Require(bool value, const char* reason) { if (!value) throw std::runtime_error(reason); }
 struct Interrupted {};
 struct FakeRegistration : sd::install::Registration {
-  bool present = false, recovery = false, failRemove = false; int retries = 0;
+  bool present = false, recovery = false, failRemove = false, failStartupRemoval = false; int retries = 0;
   void CheckOwnership() override {}
   void SetRecoveryLink() override { recovery = true; }
+  void CheckStartup() override {}
+  void SetStartup() override {}
+  bool StartupMatches() override { return true; }
+  void RemoveStartup() override {
+    if (failStartupRemoval) throw sd::updates::Failure("STORAGE_IO");
+  }
   void Set(const sd::install::Installation&) override { present = true; recovery = true; }
   bool Matches(const sd::install::Installation&) override { return present && recovery; }
   void Remove() override { if (failRemove) { failRemove = false; throw sd::updates::Failure("STORAGE_IO"); } present = false; }
@@ -28,6 +34,9 @@ struct Registry : sd::install::RegistryPort {
   void SetDword(const std::wstring& key, DWORD value) override { dwords[key] = value; }
   void Flush() override {}
   void Remove() override { strings.clear(); dwords.clear(); }
+  std::optional<sd::install::StartupValue> Startup() override { return std::nullopt; }
+  void EnsureStartup(const sd::install::StartupValue&) override {}
+  void RemoveStartup(const sd::install::StartupValue&) override {}
 };
 struct Shortcuts : sd::install::ShortcutPort {
   bool Exists(const std::filesystem::path&) override { return false; }
@@ -70,7 +79,7 @@ int main() {
     root = std::filesystem::path(temporary) / (L"ServerDeckRemovalUnit-" + sd::Uuid()); sd::SecureDirectory(root);
     const std::string app = "synthetic application", setup = "synthetic setup";
     const Package package{sd::updates::ParseVersion("0.1.0"), View(app), View(setup)};
-    for (const auto* name : {L"normal", L"empty-root", L"locked", L"interrupted", L"sid", L"active", L"foreign-pending", L"reparse", L"retry-registration", L"remove-registration", L"after-registration"}) {
+    for (const auto* name : {L"normal", L"empty-root", L"locked", L"interrupted", L"sid", L"active", L"foreign-pending", L"reparse", L"retry-registration", L"remove-registration", L"after-registration", L"startup-locked"}) {
       const auto scenario = root / name; sd::SecureDirectory(scenario);
       const Paths paths{scenario / L"install", scenario / L"data", scenario / L"programs", sd::UserSid()};
       Files files(paths); FakeRegistration registration; std::optional<Installation> installed;
@@ -162,6 +171,14 @@ int main() {
         registration.failRemove = true;
         Require(!RemoveInstallation(files, lease, registration, ticket, retry).complete() && files.Exists(L"journal.v1") && registration.present,
           "registry failure lost partial retry authority");
+      }
+      if (std::wstring(name) == L"startup-locked") {
+        registration.failStartupRemoval = true;
+        const auto blocked = RemoveInstallation(files, lease, registration, ticket, retry);
+        Require(blocked.remaining == std::vector<std::wstring>{L"startup-registration"} &&
+          files.Exists(L"journal.v1") && files.Exists(L"ServerDeck.exe") && registration.present,
+          "startup registration failure did not retain uninstall retry");
+        registration.failStartupRemoval = false;
       }
       if (std::wstring(name) == L"after-registration") {
         bool stopped = false;

@@ -12,16 +12,12 @@ import '../fixtures/monitoring_harness.dart';
 
 void main() {
   testWidgets(
-    'startup gate exposes explicit start callback and no silent connection',
+    'startup automatically admits monitoring without a recovery notice',
     (tester) async {
-      final w = MonitoringWidgetHarness(autoAllowed: false);
+      final w = MonitoringWidgetHarness();
       addTearDown(w.dispose);
       w.h.add(1);
       await w.mount(tester);
-      expect(find.text('Начать мониторинг'), findsOneWidget);
-      expect(w.h.port.attempts, isEmpty);
-      await tester.tap(find.text('Начать мониторинг'));
-      await tester.pumpAndSettle();
       expect(w.h.port.admitted, [mid(1)]);
       expect(find.text('Начать мониторинг'), findsNothing);
     },

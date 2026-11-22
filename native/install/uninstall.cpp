@@ -52,6 +52,8 @@ RemovalResult RemoveInstallation(Files& files, Lease& lease, Registration& regis
   files.WriteRecord(L"journal.v1", EncodeJournal(journal));
   preserveRetry(); if (checkpoint) checkpoint("remove-prepared");
   RemovalResult result;
+  try { registration.RemoveStartup(); }
+  catch (const std::exception&) { result.remaining.push_back(L"startup-registration"); return result; }
   const auto remove = [&](const std::wstring& path) {
     try { files.Remove(path); if (checkpoint) checkpoint("remove-file"); }
     catch (const std::exception&) { result.remaining.push_back(path); }

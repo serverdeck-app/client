@@ -104,7 +104,7 @@ void main() {
   testWidgets(
     'empty history and storage error retry action do not expose raw failures',
     (tester) async {
-      final w = MonitoringWidgetHarness(autoAllowed: false);
+      final w = MonitoringWidgetHarness();
       addTearDown(w.dispose);
       w.h.add(1);
       w.h.historyStore.failRead = true;
@@ -121,7 +121,7 @@ void main() {
       await tester.tap(find.text('Повторить сохранение истории'));
       await tester.pumpAndSettle();
       expect(find.text('История мониторинга недоступна'), findsNothing);
-      expect(w.h.port.attempts, isEmpty);
+      expect(w.h.port.attempts, [mid(1)]);
       await w.finish(tester);
     },
   );

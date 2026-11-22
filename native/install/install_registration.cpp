@@ -1,5 +1,6 @@
 #include "install_registration.h"
 #include "uninstall.h"
+#include <ktmw32.h>
 #include <shobjidl.h>
 #include <shlguid.h>
 #include <shlobj.h>
@@ -8,6 +9,9 @@
 namespace sd::install {
 namespace {
 constexpr wchar_t kKey[] = L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\ServerDeck";
+constexpr wchar_t kRunKey[] = L"Software\\Microsoft\\Windows\\CurrentVersion\\Run";
+constexpr wchar_t kRunName[] = L"ServerDeck";
+constexpr size_t kRunCommandLimit = 260;
 [[noreturn]] void Io() { throw updates::Failure("STORAGE_IO"); }
 [[noreturn]] void Foreign() { throw updates::Failure("RECOVERY_REQUIRED"); }
 std::wstring Quote(const std::filesystem::path& path) { return L"\"" + path.wstring() + L"\""; }
@@ -24,8 +28,8 @@ template<class T> struct Pointer {
   ~Pointer() { if (value) value->Release(); }
 };
 struct Key { HKEY value = nullptr; ~Key() { if (value) RegCloseKey(value); } };
-bool OpenKey(Key& key, REGSAM access) {
-  const auto result = RegOpenKeyExW(HKEY_CURRENT_USER, kKey, 0, access | KEY_WOW64_64KEY, &key.value);
+bool OpenKey(Key& key, REGSAM access, const wchar_t* path = kKey) {
+  const auto result = RegOpenKeyExW(HKEY_CURRENT_USER, path, 0, access | KEY_WOW64_64KEY, &key.value);
   if (result == ERROR_FILE_NOT_FOUND || result == ERROR_PATH_NOT_FOUND) return false;
   if (result != ERROR_SUCCESS) Io(); return true;
 }
@@ -96,6 +100,9 @@ class NativeRegistry final : public RegistryPort {
     const auto result = RegDeleteTreeW(HKEY_CURRENT_USER, kKey);
     if (result != ERROR_SUCCESS && result != ERROR_FILE_NOT_FOUND && result != ERROR_PATH_NOT_FOUND) Io();
   }
+  std::optional<StartupValue> Startup() override { return ReadStartupValue(kRunKey, kRunName); }
+  void EnsureStartup(const StartupValue& value) override { ChangeStartupValue(kRunKey, kRunName, value, false); }
+  void RemoveStartup(const StartupValue& value) override { ChangeStartupValue(kRunKey, kRunName, value, true); }
  private:
   static void Create(Key& key) {
     DWORD disposition = 0;
@@ -123,6 +130,66 @@ std::optional<std::wstring> ReadRegistryString(const std::function<LSTATUS(void*
   text.resize(bytes / sizeof(wchar_t));
   if (text.back() != L'\0') Io();
   text.pop_back(); if (text.find(L'\0') != std::wstring::npos) Foreign(); return text;
+}
+namespace {
+std::optional<StartupValue> QueryStartupValue(HKEY key, const wchar_t* name) {
+  DWORD type = REG_NONE;
+  DWORD bytes = 0;
+  const auto result = RegQueryValueExW(key, name, nullptr, &type, nullptr, &bytes);
+  if (result == ERROR_FILE_NOT_FOUND) return std::nullopt;
+  if (result != ERROR_SUCCESS) Io();
+  std::array<wchar_t, kRunCommandLimit + 1> buffer{};
+  if ((type != REG_SZ && type != REG_EXPAND_SZ) || bytes < sizeof(wchar_t) ||
+      bytes % sizeof(wchar_t) || bytes > sizeof(buffer)) return StartupValue{type, {}};
+  DWORD actualType = REG_NONE, actualBytes = bytes;
+  if (RegQueryValueExW(key, name, nullptr, &actualType, reinterpret_cast<BYTE*>(buffer.data()),
+        &actualBytes) != ERROR_SUCCESS || actualType != type || actualBytes != bytes) Io();
+  const std::wstring text(buffer.data(), actualBytes / sizeof(wchar_t));
+  if (text.find(L'\0') != text.size() - 1) return StartupValue{type, {}};
+  return StartupValue{type, text.substr(0, text.size() - 1)};
+}
+StartupValue StartupCommand(const Paths& paths) {
+  return {REG_SZ, Quote(paths.install / L"ServerDeck.exe")};
+}
+}
+std::optional<StartupValue> ReadStartupValue(const wchar_t* path, const wchar_t* name) {
+  Key key;
+  if (!OpenKey(key, KEY_QUERY_VALUE, path)) return std::nullopt;
+  return QueryStartupValue(key.value, name);
+}
+void ChangeStartupValue(const wchar_t* path, const wchar_t* name, const StartupValue& expected, bool remove,
+                        const std::function<void()>& beforeWrite) {
+  if (!remove && expected.command.size() > kRunCommandLimit) Io();
+  if (remove && ReadStartupValue(path, name) != expected) return;
+  Handle transaction(CreateTransaction(nullptr, nullptr, 0, 0, 0, 5000, nullptr));
+  if (!transaction.valid()) Io();
+  {
+    Key key;
+    constexpr REGSAM access = KEY_QUERY_VALUE | KEY_SET_VALUE | KEY_WOW64_64KEY;
+    if (remove) {
+      const auto open = RegOpenKeyTransactedW(HKEY_CURRENT_USER, path, 0, access, &key.value, transaction.get(), nullptr);
+      if (open == ERROR_FILE_NOT_FOUND || open == ERROR_PATH_NOT_FOUND) return;
+      if (open != ERROR_SUCCESS) Io();
+    } else if (RegCreateKeyTransactedW(HKEY_CURRENT_USER, path, 0, nullptr, 0, access, nullptr, &key.value,
+        nullptr, transaction.get(), nullptr) != ERROR_SUCCESS) Io();
+    const auto previous = QueryStartupValue(key.value, name);
+    if (remove) {
+      if (previous != expected) return;
+      if (beforeWrite) beforeWrite();
+      if (RegDeleteValueW(key.value, name) != ERROR_SUCCESS) Io();
+    } else {
+      if (previous == expected) return;
+      if (previous) Foreign();
+      if (beforeWrite) beforeWrite();
+      const auto size = static_cast<DWORD>((expected.command.size() + 1) * sizeof(wchar_t));
+      if (RegSetValueExW(key.value, name, 0, expected.type,
+          reinterpret_cast<const BYTE*>(expected.command.c_str()), size) != ERROR_SUCCESS) Io();
+    }
+    // Compare the committed value after acquiring the transaction's write
+    // conflict protection. A competing write aborts or invalidates the change.
+    if (ReadStartupValue(path, name) != previous) Foreign();
+  }
+  if (!CommitTransaction(transaction.get())) Io();
 }
 RegistrationValues ProjectRegistration(const Paths& paths, const Installation& record) {
   paths.Validate(); if (record.sid != Utf8(paths.sid)) Foreign(); EncodeInstallation(record);
@@ -186,6 +253,15 @@ bool WindowsRegistration::Matches(const Installation& record) {
   }
   return shortcuts_->Matches(values.shortcut, values.application, L"") && shortcuts_->Matches(values.recoveryShortcut, values.recovery, L"--repair");
 }
+void WindowsRegistration::CheckStartup() {
+  const auto command = StartupCommand(paths_);
+  if (command.command.size() > kRunCommandLimit) Io();
+  const auto current = registry_->Startup();
+  if (current && *current != command) Foreign();
+}
+void WindowsRegistration::SetStartup() { registry_->EnsureStartup(StartupCommand(paths_)); }
+bool WindowsRegistration::StartupMatches() { return registry_->Startup() == StartupCommand(paths_); }
+void WindowsRegistration::RemoveStartup() { registry_->RemoveStartup(StartupCommand(paths_)); }
 void WindowsRegistration::Remove() {
   CheckOwnership(); shortcuts_->Remove(paths_.programs / L"ServerDeck.lnk"); registry_->Remove();
 }

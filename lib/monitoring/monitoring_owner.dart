@@ -22,12 +22,10 @@ final class MonitoringOwner implements Listenable, RuntimeCapability {
     required this.actor,
     required this.connections,
     required bool Function(String profileId) isSyncAutoBlocked,
-    required bool startupAutoAllowed,
     Duration Function()? monotonicNow,
     int Function()? utcNow,
     ScheduleOwnedDeadline? schedule,
-  }) : _blocked = !startupAutoAllowed,
-       _isSyncAutoBlocked = isSyncAutoBlocked,
+  }) : _isSyncAutoBlocked = isSyncAutoBlocked,
        _now = monotonicNow,
        _utc = utcNow ?? _systemUtc,
        _schedule = schedule ?? _timer {
@@ -64,18 +62,13 @@ final class MonitoringOwner implements Listenable, RuntimeCapability {
   StreamSubscription<void>? _subscription;
   Future<void>? _refresh, _disposal;
   void Function()? _cancelTick;
-  bool _active = false,
-      _blocked,
-      _stopped = false,
-      _disposed = false,
-      _rerun = false;
+  bool _active = false, _stopped = false, _disposed = false, _rerun = false;
   int _epoch = 0;
   Duration _lastHistoryCleanup = Duration.zero;
   MonitoringReason? error;
   @override
   String get id => 'monitoring';
   bool get active => _active && !_stopped;
-  bool get startupBlocked => _blocked;
   int get profileCount => _entries.length;
   List<ProfileView> get profiles => _profiles;
   Duration get now => _now?.call() ?? _clock.elapsed;
@@ -136,13 +129,6 @@ final class MonitoringOwner implements Listenable, RuntimeCapability {
       unawaited(reconcile());
     }
     _notify();
-  }
-
-  void startExplicitly() {
-    if (_stopped || !_blocked) return;
-    _blocked = false;
-    _notify();
-    if (_active) unawaited(reconcile());
   }
 
   void _armTick() {
@@ -268,35 +254,33 @@ final class MonitoringOwner implements Listenable, RuntimeCapability {
         _persistHistory(state);
       }
     }
-    if (!_blocked) {
-      for (final profile in profiles) {
-        if (!_current(epoch)) return;
-        if (_autoBusy() >= 4) break;
-        final state = _entries[profile.profileId]!;
-        final view = _connection(profile.profileId);
-        if (!state.attempted &&
-            !_syncBlocked(profile.profileId) &&
-            !_autoJobs.containsKey(state) &&
-            view.state == ConnectionState.disconnected &&
-            connections.generation(profile.profileId) == 0) {
-          _startAuto(state, epoch);
-        }
+    for (final profile in profiles) {
+      if (!_current(epoch)) return;
+      if (_autoBusy() >= 4) break;
+      final state = _entries[profile.profileId]!;
+      final view = _connection(profile.profileId);
+      if (!state.attempted &&
+          !_syncBlocked(profile.profileId) &&
+          !_autoJobs.containsKey(state) &&
+          view.state == ConnectionState.disconnected &&
+          connections.generation(profile.profileId) == 0) {
+        _startAuto(state, epoch);
       }
-      var visited = 0;
-      final length = _order.length;
-      while (_jobs.length < 4 && visited++ < length && _order.isNotEmpty) {
-        final id = _order.removeFirst();
-        _order.addLast(id);
-        final state = _entries[id]!;
-        final view = _connection(id);
-        if (state.job == null &&
-            !_syncBlocked(id) &&
-            view.state == ConnectionState.connected &&
-            view.sessionId != null &&
-            state.unsupportedSession != view.sessionId &&
-            now >= state.dueAt) {
-          _startCollection(state, view, epoch);
-        }
+    }
+    var visited = 0;
+    final length = _order.length;
+    while (_jobs.length < 4 && visited++ < length && _order.isNotEmpty) {
+      final id = _order.removeFirst();
+      _order.addLast(id);
+      final state = _entries[id]!;
+      final view = _connection(id);
+      if (state.job == null &&
+          !_syncBlocked(id) &&
+          view.state == ConnectionState.connected &&
+          view.sessionId != null &&
+          state.unsupportedSession != view.sessionId &&
+          now >= state.dueAt) {
+        _startCollection(state, view, epoch);
       }
     }
     _notify();
@@ -611,8 +595,6 @@ final class MonitoringOwner implements Listenable, RuntimeCapability {
         ? MonitoringReason.stopped
         : !_active
         ? MonitoringReason.paused
-        : _blocked
-        ? MonitoringReason.stopped
         : _connecting(view.state) || changedSession
         ? MonitoringReason.waiting
         : view.state != ConnectionState.connected

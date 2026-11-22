@@ -8,7 +8,6 @@
 #include "../../native/include/serverdeck_host.h"
 #include "../../native/include/security.h"
 #include "../../native/include/mcp_pipe.h"
-#include "../../native/include/monitoring_run.h"
 #include <shellapi.h>
 #include "update_runtime.h"
 #include "../../native/include/update_restart.h"
@@ -76,7 +75,6 @@ class PlatformChannel {
   sd::Handle activationIoEvent_;
   std::thread activationThread_;
   std::unique_ptr<sd::mcp::Broker> mcp_;
-  sd::monitoring::RunState monitoringRun_;
   bool updatesStopped_ = false;
   std::unique_ptr<UpdateRuntime> updates_;
 };

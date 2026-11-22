@@ -52,7 +52,6 @@ final class FeatureRuntime implements RuntimeCapability {
     required this.repository,
     required this.signer,
     required this.isRunning,
-    this.monitoringAutoAllowed = false,
   }) : _windows = platform,
        secrets = platform,
        keyPicker = platform,
@@ -86,8 +85,7 @@ final class FeatureRuntime implements RuntimeCapability {
        _createTransport = createTransport,
        _connectionClock = connectionClock,
        _connectionSchedule = connectionSchedule,
-       capabilities = PlatformCapabilities.android,
-       monitoringAutoAllowed = false {
+       capabilities = PlatformCapabilities.android {
     _buildShared();
   }
 
@@ -209,7 +207,6 @@ final class FeatureRuntime implements RuntimeCapability {
       operations: operations,
       actor: actors.ui,
       connections: connections,
-      startupAutoAllowed: monitoringAutoAllowed,
       isSyncAutoBlocked: connections.isSyncAutoBlocked,
       utcNow: utcNow,
     );
@@ -291,7 +288,6 @@ final class FeatureRuntime implements RuntimeCapability {
 
   final ReceiptSigner signer;
   final bool Function() isRunning;
-  final bool monitoringAutoAllowed;
   late final ActorAuthority actors;
   late final CanonicalOperationState state;
   late final DomainCommandGate gate;
