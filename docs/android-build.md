@@ -57,6 +57,17 @@ installer/catalog/signing follow their separate release contract.
 
 ## External signing
 
+Published releases from0.3.9 use the separate tag-triggered
+`.github/workflows/android-release.yml`. It runs `tools/build-android-release.ps1`,
+pins the public signing certificate SHA256 and uses versionCode from
+`release/android-version-code.txt` (3009 for0.3.9; increase for future Android releases).
+The permanent keystore/password are GitHub Actions secrets, never repository files.
+APK and its SHA256 sidecar are attached to the matching published Windows release;
+existing assets are not replaced. The Windows workflow is unchanged.
+Local signed builds use SERVERDECK_ANDROID_KEYSTORE and
+SERVERDECK_ANDROID_SIGNING_PASSWORD with that same script; unsigned Gradle output
+is never distributed. Keep the original protected keystore/password backup.
+
 The release operator supplies an Android signing keystore outside the repository,
 an existing alias, and credentials in environment variables. Retain the same signing
 identity for future updates. Key loss can require reinstall/local-data loss; cloud

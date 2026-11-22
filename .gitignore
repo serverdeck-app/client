@@ -17,6 +17,8 @@ work/
 android/key.properties
 *.jks
 *.keystore
+*.p12
+*.pfx
 *.sqlite*
 *.isar
 *.isar.lock

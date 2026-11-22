@@ -1,0 +1,92 @@
+name: Signed Android APK
+on:
+  push:
+    tags:
+      - 'v[0-9]*.[0-9]*.[0-9]*'
+permissions:
+  contents: write
+concurrency:
+  group: publish-android-release
+  cancel-in-progress: false
+jobs:
+  android:
+    runs-on: windows-2022
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: android-actions/setup-android@v3
+      - name: Install pinned SDK and Flutter
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          sdkmanager 'platforms;android-36' 'build-tools;36.0.0' 'ndk;28.2.13676358'
+          if($LASTEXITCODE) { throw 'Android SDK install failed' }
+          $archive=Join-Path $env:RUNNER_TEMP 'flutter.zip'
+          Invoke-WebRequest 'https://storage.googleapis.com/flutter_infra_release/releases/stable/windows/flutter_windows_3.47.7-stable.zip' -OutFile $archive
+          if((Get-FileHash $archive -Algorithm SHA256).Hash.ToLowerInvariant() -ne 'c2c875da25a1a1448d18ee4e8f398b2f6fce888b4775d8f9130538e16d826cb4') { throw 'Flutter checksum mismatch' }
+          Expand-Archive -LiteralPath $archive -DestinationPath "$env:RUNNER_TEMP/sdk"
+          "$env:RUNNER_TEMP/sdk/flutter/bin" >> $env:GITHUB_PATH
+      - name: Build signed APK and static audit
+        shell: pwsh
+        env:
+          KEYSTORE_BASE64: ${{ secrets.SERVERDECK_ANDROID_KEYSTORE_BASE64 }}
+          SERVERDECK_ANDROID_SIGNING_PASSWORD: ${{ secrets.SERVERDECK_ANDROID_SIGNING_PASSWORD }}
+        run: |
+          $ErrorActionPreference='Stop'
+          $version=([regex]::Match((Get-Content -Raw pubspec.yaml),'(?m)^version:\s*(\S+)\s*$')).Groups[1].Value
+          if($env:GITHUB_REF_NAME -cne "v$version") { throw 'Tag/version mismatch' }
+          if(!$env:KEYSTORE_BASE64 -or !$env:SERVERDECK_ANDROID_SIGNING_PASSWORD) { throw 'Android signing secrets missing' }
+          $env:SERVERDECK_ANDROID_KEYSTORE=Join-Path $env:RUNNER_TEMP 'serverdeck-android.p12'
+          try {
+            [IO.File]::WriteAllBytes($env:SERVERDECK_ANDROID_KEYSTORE,[Convert]::FromBase64String($env:KEYSTORE_BASE64))
+            $env:KEYSTORE_BASE64=''
+            ./tools/build-android-release.ps1
+          } finally {
+            $env:KEYSTORE_BASE64='';$env:SERVERDECK_ANDROID_SIGNING_PASSWORD=''
+            if(Test-Path -LiteralPath $env:SERVERDECK_ANDROID_KEYSTORE) { Remove-Item -LiteralPath $env:SERVERDECK_ANDROID_KEYSTORE -Force }
+          }
+      - name: Attach Android assets to matching published release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          $ErrorActionPreference='Stop'
+          $deadline=[DateTime]::UtcNow.AddMinutes(20)
+          $release=$null
+          while([DateTime]::UtcNow -lt $deadline) {
+            $json=gh release view $env:GITHUB_REF_NAME --json isDraft,assets,tagName 2>$null
+            if(!$LASTEXITCODE) {
+              $candidate=$json|ConvertFrom-Json
+              if(!$candidate.isDraft) { $release=$candidate;break }
+            }
+            Start-Sleep -Seconds 15
+          }
+          if(!$release -or $release.tagName -cne $env:GITHUB_REF_NAME) { throw 'Matching published Windows release unavailable' }
+          $tagCommit=(gh api "repos/$env:GH_REPO/commits/$env:GITHUB_REF_NAME" --jq .sha)
+          if($LASTEXITCODE -or $tagCommit -cne $env:GITHUB_SHA) { throw 'Release tag commit mismatch' }
+          $names=@($release.assets.name)
+          if($names -cnotcontains 'ServerDeckSetup.exe' -or $names -cnotcontains 'serverdeck-update-catalog.txt') { throw 'Windows release assets incomplete' }
+          if($names -ccontains 'ServerDeck-android.apk' -or $names -ccontains 'ServerDeck-android.apk.sha256') { throw 'Android assets already exist; refusing replacement' }
+          $older=gh api "repos/$env:GH_REPO/releases" --paginate --jq '.[] | select(.draft == false and .prerelease == false) | select(any(.assets[]; .name == "ServerDeck-android.apk")) | .tag_name'
+          if($LASTEXITCODE) { throw 'Cannot inspect previous Android releases' }
+          $prior=@($older | Where-Object {$_ -cne $env:GITHUB_REF_NAME}) | Select-Object -First 1
+          if($prior) {
+            $previousDirectory=Join-Path $env:RUNNER_TEMP 'previous-android'
+            gh release download $prior --pattern ServerDeck-android.apk --dir $previousDirectory
+            if($LASTEXITCODE) { throw 'Cannot retrieve previous Android version code' }
+            $badging=& "$env:ANDROID_HOME/build-tools/36.0.0/aapt.exe" dump badging "$previousDirectory/ServerDeck-android.apk"
+            if($LASTEXITCODE) { throw 'Cannot inspect previous Android package' }
+            $match=[regex]::Match(($badging -join "`n"),"^package: name='com\.unng\.serverdeck' versionCode='([0-9]+)'",'Multiline')
+            $currentCode=[long](Get-Content -Raw release/android-version-code.txt).Trim()
+            if(!$match.Success -or $currentCode -le [long]$match.Groups[1].Value) { throw 'Android version code must increase' }
+          }
+          gh release upload $env:GITHUB_REF_NAME output/android/ServerDeck-android.apk output/android/ServerDeck-android.apk.sha256
+          if($LASTEXITCODE) { throw 'Android publication failed' }
