@@ -280,7 +280,8 @@ final class SyncNativeSession {
     this.tokens,
     this.statusProof,
   );
-  final String accountId, deviceId, vaultId, email;
+  final String accountId, deviceId, vaultId;
+  final String? email;
   final SyncSessionTokens tokens;
   final SyncBoundSecret statusProof;
   factory SyncNativeSession.parse(Object? value, SyncServiceOrigin origin) {
@@ -294,9 +295,12 @@ final class SyncNativeSession {
       'expires_in',
       'status_proof',
     });
-    final email = SyncWire.text(map['email'], max: 254);
-    if (RegExp(r'[^\x21-\x7e]').hasMatch(email) ||
-        '@'.allMatches(email).length != 1)
+    final email = map['email'] == null
+        ? null
+        : SyncWire.text(map['email'], max: 254);
+    if (email != null &&
+        (RegExp(r'[^\x21-\x7e]').hasMatch(email) ||
+            '@'.allMatches(email).length != 1))
       throw syncInvalidWire;
     return SyncNativeSession._(
       SyncWire.uuid(map['account_id']),
