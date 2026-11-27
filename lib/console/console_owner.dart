@@ -49,7 +49,7 @@ final class ConsoleOwner
   final _clock = Stopwatch()..start();
   late final _replay = ConsoleReplayBook(actors.ownerEpoch);
   final _notifier = _ConsoleNotifier();
-  static const _perProfileLimit = 4, _globalLimit = 16;
+  static const _perProfileLimit = 8, _globalLimit = 32;
   final _sessions = <String, _ConsoleSession>{};
   final _history = <String, _ConsoleSession>{};
 
@@ -237,6 +237,9 @@ final class ConsoleOwner
       _sanitizeSessions();
       if (!isCanonicalUuid(profileId))
         throw const OperationFailure(FailureCode.invalidArgument);
+      for (final session in _sessions.values.toList()) {
+        _retireIfChannelAborted(session);
+      }
       if (_sessions.length >= _globalLimit ||
           _sessions.values.where((s) => s.profileId == profileId).length >=
               _perProfileLimit) {

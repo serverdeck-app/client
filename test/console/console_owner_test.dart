@@ -79,14 +79,14 @@ void main() {
       );
     },
   );
-  test('four per-profile reservations include pending shells', () async {
+  test('eight per-profile reservations include pending shells', () async {
     final caller = ConsoleCaller.ui(h.actors.ui);
     port.autoOpen = false;
-    for (var i = 0; i < 4; i++)
+    for (var i = 0; i < 8; i++)
       expect((await owner.openConsole(caller, profile)).ok, isTrue);
     final over = await owner.openConsole(caller, profile);
     expect(over.error?.code, FailureCode.resourceExhausted);
-    expect(owner.sessionsFor(profile).length, 4);
+    expect(owner.sessionsFor(profile).length, 8);
   });
   test(
     'late open after cancellation cannot revive disconnected console',

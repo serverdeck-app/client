@@ -489,15 +489,15 @@ void main() {
     expect(owner.sessionsFor(profile), isEmpty);
   });
   test(
-    'disconnect releases four slots without affecting other profiles',
+    'disconnect releases eight slots without affecting other profiles',
     () async {
       final targets = [profile];
       for (var server = 1; server <= 4; server++) {
         targets.add(await h.create(host: '$server.invalid'));
       }
-      final originals = [for (var i = 0; i < 4; i++) await open()];
+      final originals = [for (var i = 0; i < 8; i++) await open()];
       for (final target in targets.skip(1).take(3)) {
-        for (var i = 0; i < 4; i++) {
+        for (var i = 0; i < 8; i++) {
           expect((await owner.openConsole(ui, target)).ok, true);
           await featureTurns();
         }
@@ -513,21 +513,22 @@ void main() {
         owner.historyFor(profile).map((s) => s.sessionId),
         originals.reversed.map((s) => s.sessionId),
       );
-      expect(port.openings.take(4).every((o) => o.channel.closed), true);
-      expect(port.openings.skip(4).every((o) => !o.channel.closed), true);
-      for (var i = 0; i < 4; i++) {
+      expect(port.openings.take(8).every((o) => o.channel.closed), true);
+      expect(port.openings.skip(8).every((o) => !o.channel.closed), true);
+      for (var i = 0; i < 8; i++) {
         await open();
       }
-      expect(owner.liveSessionsFor(profile), hasLength(4));
-      expect(owner.historyFor(profile), hasLength(4));
+      expect(owner.liveSessionsFor(profile), hasLength(8));
+      expect(owner.historyFor(profile), hasLength(8));
       expect(
         (await owner.openConsole(ui, targets.last)).error?.code,
         FailureCode.resourceExhausted,
       );
 
-      port.openings.last.channel.end();
-      await featureTurns();
-      expect(owner.historyFor(profile), hasLength(4));
+      // A failed channel can be observable before its done callback runs.
+      port.openings.last.channel.failure = 'networkError';
+      expect((await owner.openConsole(ui, targets.last)).ok, true);
+      expect(owner.historyFor(profile), hasLength(8));
       expect(
         (await owner.readConsole(
           ui,
@@ -537,7 +538,6 @@ void main() {
         )).error?.code,
         FailureCode.consoleNotFound,
       );
-      expect((await owner.openConsole(ui, targets.last)).ok, true);
     },
   );
 
@@ -559,7 +559,7 @@ void main() {
 
     for (var server = 1; server <= 5; server++) {
       final target = await h.create(host: '$server.invalid');
-      for (var i = 0; i < (server == 5 ? 1 : 4); i++) {
+      for (var i = 0; i < (server == 5 ? 1 : 8); i++) {
         expect((await owner.openConsole(ui, target)).ok, true);
         await featureTurns();
         if (server == 5 && i == 0) break;

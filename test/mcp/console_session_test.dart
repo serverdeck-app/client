@@ -113,8 +113,8 @@ void main() {
     };
   }
 
-  test('router lists four live and four archived consoles and authorizes archived reads', () async {
-    final previous = [for (var i = 0; i < 4; i++) await open()];
+  test('router lists eight live and eight archived consoles and authorizes archived reads', () async {
+    final previous = [for (var i = 0; i < 8; i++) await open()];
     final target = previous.first;
     final readTarget = {...target}..remove('leaseToken');
     port.openings.first.channel.emit(utf8.encode('first row\r\nsaved output'));
@@ -125,7 +125,7 @@ void main() {
     port.connected = false;
     port.events.add(ConsoleInvalidation(profile, clear: false));
     port.connected = true;
-    final live = [for (var i = 0; i < 4; i++) await open()];
+    final live = [for (var i = 0; i < 8; i++) await open()];
     final listed =
         (await call('list', {'profileId': profile}))['value']['sessions']
             as List;
@@ -134,15 +134,15 @@ void main() {
       ...previous.reversed.map((entry) => entry['sessionId']),
     ]);
     expect(
-      listed.take(4).map((entry) => entry['state']),
+      listed.take(8).map((entry) => entry['state']),
       everyElement('active'),
     );
     expect(
-      listed.skip(4).map((entry) => entry['state']),
+      listed.skip(8).map((entry) => entry['state']),
       everyElement('disconnected'),
     );
     expect(
-      listed.skip(4).map((entry) => entry['inputOwner']['kind']),
+      listed.skip(8).map((entry) => entry['inputOwner']['kind']),
       everyElement('free'),
     );
     final page = (await call('read', {
@@ -175,7 +175,10 @@ void main() {
       (await call('read', readTarget))['error']['code'],
       'CONSOLE_NOT_FOUND',
     );
-    expect(port.openings.skip(4).every((o) => !o.channel.closed), true);
+    expect(
+      port.openings.skip(previous.length).every((o) => !o.channel.closed),
+      true,
+    );
 
     await h.grants.revoke(h.actors.ui, client, confirmed: true);
     final denied = await session.handle(

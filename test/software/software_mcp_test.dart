@@ -466,7 +466,7 @@ void main() {
     final success = (consoleList['outputSchema']['oneOf'] as List).first;
     final sessions =
         success['properties']['value']['properties']['sessions'] as Map;
-    expect(sessions['maxItems'], 8);
+    expect(sessions['maxItems'], 16);
     sessions['maxItems'] = 4;
 
     final digest = SHA256Digest()

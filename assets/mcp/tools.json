@@ -11136,7 +11136,7 @@
                     "items": {
                       "$ref": "#/$defs/Session"
                     },
-                    "maxItems": 8
+                    "maxItems": 16
                   },
                   "nextOperationSequence": {
                     "type": "integer",
